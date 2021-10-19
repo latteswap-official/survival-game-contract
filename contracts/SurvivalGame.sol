@@ -28,7 +28,9 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable {
   // Instance of LATTE token (collateral currency)
   IERC20 internal _latte;
   uint256 gameId;
+  uint256 prizePoolInLatte;
   uint8 roundNumber;
+  uint8 constant maxRound = 6;
 
   // Represents the status of the game
   enum GameStatus {
@@ -36,12 +38,40 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     Started, // The game has been started
     Completed // The game has been completed and might have the winners
   }
+
+  enum PlayerStatus {
+    Pending, // The player have to check was killed
+    Dead, // The player was killed
+    Voting, // The player waiting to vote
+    Survived // The player is survived of round
+  }
+
   // All the needed info around the game
   struct GameInfo {
     GameStatus status;
     uint8 roundNumber;
-    uint256 pricePoolInLatte;
+    uint256 finalPrizeInLatte;
     uint256 costPerTicket;
     uint256 burnBps;
   }
+
+  // GameInfo ID's to info
+  mapping(uint256 => GameInfo) public gameInfo;
+
+  struct RoundInfo {
+    uint256 prizeDistribution;
+    uint256 survivalBps;
+    uint256 stopVoteCount;
+    uint256 continueVoteCount;
+    uint256 surviverCount;
+    uint256 entropy;
+  }
+
+  // Round Info
+  mapping(uint256 => mapping(uint256 => RoundInfo)) public roundInfo;
+
+  // Player
+  mapping(uint256 => address) public playerOwner;
+  mapping(uint256 => uint256) public playerGame;
+  mapping(uint256 => mapping(uint8 => PlayerStatus)) public playerStatus;
 }
