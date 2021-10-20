@@ -33,8 +33,10 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   uint256 internal prizePoolInLatte;
   uint8 internal roundNumber;
   uint8 constant maxRound = 6;
+  uint8 constant maxBatchSize = 10;
 
   bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE"); // role for operator stuff
+  address public constant DEAD_ADDR = 0x000000000000000000000000000000000000dEaD;
 
   // Represents the status of the game
   enum GameStatus {
@@ -178,7 +180,27 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   /// User's functions
   /// @dev buy players and give ownership to _to
-  function buyBatch(uint256 _playerAmount, address _to) external onlyOpened {}
+  /// @param _size - size of the batch
+  /// @param _to - address of the player's master
+  function buyBatch(uint256 _size, address _to) external onlyOpened returns (uint256[] memory _ids) {
+    require(_size != 0, "SurvivalGame::buyBatch::size must be greater than zero");
+    require(_size <= maxBatchSize, "SurvivalGame::buyBatch::size must not exceed max batch size");
+    uint256 totalPrice;
+    uint256 totalLatteBurn;
+    {
+      GameInfo memory game = gameInfo[gameId];
+      uint256 price = game.costPerTicket;
+      totalPrice = price.mul(_size);
+      uint256 burnBps = game.burnBps;
+      totalLatteBurn = totalPrice.mul(burnBps).div(1e4);
+    }
+    latte.safeTransferFrom(msg.sender, address(this), totalPrice);
+    latte.safeTransferFrom(address(this), DEAD_ADDR, totalLatteBurn);
+    _ids = new uint256[](_size);
+    for (uint256 i = 0; i < _size; ++i) {
+      _ids[i] = _buy(_to);
+    }
+  }
 
   function checkBatch(uint256[] calldata _ids) external onlyStarted returns (uint256[] memory _survivor_ids) {}
 
@@ -191,7 +213,13 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   /// Internal functions
   function _complete() internal {}
 
-  function _buy(address _to) internal {}
+  function _buy(address _to) internal returns (uint256 _id) {
+    _id = lastPlayerId.add(1);
+    playerOwner[_id] = _to;
+    playerGame[_id] = gameId;
+    playerStatus[gameId][roundNumber] = PlayerStatus.Pending;
+    lastPlayerId = _id;
+  }
 
   function _check(uint256 _id) internal onlyMaster(_id) {}
 
