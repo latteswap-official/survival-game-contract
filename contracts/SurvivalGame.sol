@@ -62,6 +62,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     uint256 finalPrizeInLatte;
     uint256 costPerTicket;
     uint256 burnBps;
+    uint256 totalPlayer;
   }
 
   struct RoundInfo {
@@ -134,15 +135,35 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   }
 
   /// Getter functions
-  function currentGame() external returns (uint256 _gameId, uint8 _roundNumber) {}
+  function currentGame() external returns (uint256 _gameId, uint8 _roundNumber) {
+    return (uint256 gameId, uint8 roundNumber)
+  }
 
-  function currentPrizePoolInLatte() external returns (uint256 _amount) {}
+  function currentPrizePoolInLatte() external returns (uint256 _amount) {
+    return (uint256 prizePoolInLatte)
+  }
 
-  function getLastRoundSurvivors() external returns (uint256 _amount) {}
+  function getLastRoundSurvivors() external onlyStarted returns (uint256 _amount) {
+    if(roundNumber == 1) {
+      _amount = gameInfo[gameId].totalPlayer
+    } else {
+      _amount = roundInfo[gameId][roundNumber.sub(1);].surviverCount
+    }
+  }
 
   /// Operator's functions
   /// @dev create a new game and open for registration
-  function create() external onlyOper onlyCompleted {}
+  function create(uint256 ticketPrice, uint256 burnBps) external onlyOper onlyCompleted {
+    roundNumber = 0
+    info = new GameInfo({
+      roundNumber: 0
+      finalPrizeInLatte: 0
+      totalPlayer: 0
+      costPerTicket: ticketPrice
+      burnBps: burnBps
+    })
+    // set total start with 0
+  }
 
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {}
