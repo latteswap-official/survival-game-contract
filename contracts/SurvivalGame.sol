@@ -222,6 +222,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   function _check(uint256 _id) internal onlyMaster(_id) returns (bool _survived) {
     if (roundNumber > 1) {
       require(
+        playerStatus[_id][roundNumber.sub(1)] == PlayerStatus.Survived,
         "SurvivalGame::_check::player has been eliminated"
       );
     }
