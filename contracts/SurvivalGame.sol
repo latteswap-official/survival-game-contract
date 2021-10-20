@@ -48,8 +48,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   enum PlayerStatus {
     Pending, // The player have to check was killed
     Dead, // The player was killed
-    Voting, // The player waiting to vote
-    Survived // The player is survived of round
+    Survived // The player survived the round
   }
 
   enum VoteType {
@@ -84,8 +83,10 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   // Player
   mapping(uint256 => address) public playerOwner;
   mapping(uint256 => uint256) public playerGame;
-  // player id => round id => status
+  // player id => round number => status
   mapping(uint256 => mapping(uint8 => PlayerStatus)) public playerStatus;
+  // game id => round number => player address => remaining votes
+  mapping(uint256 => mapping(uint8 => mapping(address => uint256))) public remainingVote;
 
   /**
    * @notice Constructor
@@ -218,7 +219,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     lastPlayerId = _id;
   }
 
-  function _check(uint256 _id) internal onlyMaster(_id) returns (bool _canVote) {
+  function _check(uint256 _id) internal onlyMaster(_id) returns (bool _survived) {
     if (roundNumber > 1) {
       require(
         playerStatus[_id][roundNumber.div(1)] == PlayerStatus.Survived,
@@ -234,9 +235,12 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     bytes memory data = abi.encodePacked(entropy, address(this), msg.sender, _id);
 
     // eliminated if hash value mod 100 more than the survive percent
-    _canVote = (uint256(keccak256(data)) % 1e2) > survivalBps.div(1e4);
-    if (_canVote) {
-      playerStatus[_id][roundNumber] = PlayerStatus.Voting;
+    _survived = (uint256(keccak256(data)) % 1e2) > survivalBps.div(1e4);
+    if (_survived) {
+      playerStatus[_id][roundNumber] = PlayerStatus.Survived;
+      remainingVote[gameId][roundNumber][msg.sender].add(1);
+    } else {
+      playerStatus[_id][roundNumber] = PlayerStatus.Dead;
     }
   }
 
