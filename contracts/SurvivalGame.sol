@@ -195,6 +195,12 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     }
   }
 
+  /// @dev check if a player is not eliminated
+  /// @param _id - the player id
+  function check(uint256 _id) external onlyStarted returns (bool _canVote) {
+    _canVote = _check(_id);
+  }
+
   function voteContinue(uint256[] calldata _ids) external onlyStarted {}
 
   function voteStop(uint256[] calldata _ids) external onlyStarted {}
