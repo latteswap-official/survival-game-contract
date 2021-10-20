@@ -81,11 +81,11 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   mapping(uint256 => mapping(uint256 => RoundInfo)) public roundInfo;
 
   // Player
-  mapping(uint256 => address) public playerOwner;
+  mapping(uint256 => address) public playerMaster;
   mapping(uint256 => uint256) public playerGame;
   // player id => round number => status
   mapping(uint256 => mapping(uint8 => PlayerStatus)) public playerStatus;
-  // game id => round number => player address => remaining votes
+  // game id => round number => master address => remaining votes
   mapping(uint256 => mapping(uint8 => mapping(address => uint256))) public remainingVote;
 
   /**
@@ -115,7 +115,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   /// @dev only the master of the player can continue an execution
   modifier onlyMaster(uint256 _id) {
-    require(playerOwner[_id] == msg.sender, "SurvialGame::onlyMaster::only player's master");
+    require(playerMaster[_id] == msg.sender, "SurvialGame::onlyMaster::only player's master");
     _;
   }
 
@@ -213,7 +213,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   function _buy(address _to) internal returns (uint256 _id) {
     _id = lastPlayerId.add(1);
-    playerOwner[_id] = _to;
+    playerMaster[_id] = _to;
     playerGame[_id] = gameId;
     playerStatus[gameId][roundNumber] = PlayerStatus.Pending;
     lastPlayerId = _id;
@@ -222,7 +222,6 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   function _check(uint256 _id) internal onlyMaster(_id) returns (bool _survived) {
     if (roundNumber > 1) {
       require(
-        playerStatus[_id][roundNumber.div(1)] == PlayerStatus.Survived,
         "SurvivalGame::_check::player has been eliminated"
       );
     }
