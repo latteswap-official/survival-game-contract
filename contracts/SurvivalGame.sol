@@ -140,63 +140,72 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   /// Getter functions
   function currentGame() external returns (uint256 _gameId, uint8 _roundNumber) {
-    return (uint256 gameId, uint8 roundNumber)
+    _gameId = gameId;
+    _roundNumber = roundNumber;
   }
 
   function currentPrizePoolInLatte() external returns (uint256 _amount) {
-    return (uint256 prizePoolInLatte)
+    _amount = prizePoolInLatte;
   }
 
   function getLastRoundSurvivors() external onlyStarted returns (uint256 _amount) {
-    if(roundNumber == 1) {
-      _amount = gameInfo[gameId].totalPlayer
+    if (roundNumber == 1) {
+      _amount = gameInfo[gameId].totalPlayer;
     } else {
-      _amount = roundInfo[gameId][roundNumber.sub(1);].surviverCount
+      _amount = roundInfo[gameId][roundNumber.sub(1)].surviverCount;
     }
   }
 
   /// Operator's functions
   /// @dev create a new game and open for registration
-  function create(uint256 ticketPrice, uint256 burnBps, uint256[6] prizeDistributions, uint256[6] survivalsBps) external onlyOper onlyCompleted {
-    roundNumber = 0
-    gameId = gameId.add(1)
-    info = new GameInfo({
-      roundNumber: 0
-      finalPrizeInLatte: 0
-      totalPlayer: 0
-      costPerTicket: ticketPrice
+  function create(
+    uint256 ticketPrice,
+    uint256 burnBps,
+    uint256[6] memory prizeDistributions,
+    uint256[6] memory survivalsBps
+  ) external onlyOper onlyCompleted {
+    roundNumber = 0;
+    gameId = gameId.add(1);
+    GameInfo memory newGameInfo = GameInfo({
+      status: GameStatus.Opened,
+      roundNumber: 0,
+      finalPrizeInLatte: 0,
+      totalPlayer: 0,
+      costPerTicket: ticketPrice,
       burnBps: burnBps
-    })
-    gameInfo[gameId] = info
+    });
+    gameInfo[gameId] = newGameInfo;
     for (uint256 i = 0; i < maxRound; ++i) {
-      initRound = new RoundInfo({
-        prizeDistribution: prizeDistributions[i]
-        survivalBps: survivalsBps[i]
-        stopVoteCount: 0
-        continueVoteCount: 0
-        surviverCount: 0
+      RoundInfo memory initRound = RoundInfo({
+        prizeDistribution: prizeDistributions[i],
+        survivalBps: survivalsBps[i],
+        stopVoteCount: 0,
+        continueVoteCount: 0,
+        surviverCount: 0,
         entropy: 0
-      })
-      roundInfo[gameInfo][i] = initRound
+      });
+      roundInfo[gameId][i] = initRound;
     }
   }
 
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {
-    roundNumber = 1
-    roundInfo[roundNumber].surviverCount = totalPlayer
+    roundNumber = 1;
+    roundInfo[gameId][roundNumber].surviverCount = gameInfo[gameId].totalPlayer;
     // TODO: call random from chainlink
   }
 
   /// @dev sum up each round and either continue next round or complete the game
   function proceed() external onlyOper onlyStarted {
-    if (roundInfo[roundNumber].stopVoteCount > roundInfo[roundNumber].continueVoteCount) || roundNumber == maxRound {
-      _complete()
+    if (
+      roundInfo[gameId][roundNumber].stopVoteCount > roundInfo[gameId][roundNumber].continueVoteCount ||
+      roundNumber == maxRound
+    ) {
+      _complete();
     } else {
-      _newRound = roundNumber.add(1)
       // TODO: call random from chainlink
-      roundNumber = _newRound
-      gameInfo[gameId].roundNumber = _newRound
+      roundNumber = roundNumber.add(1);
+      gameInfo[gameId].roundNumber = roundNumber;
     }
   }
 
@@ -256,7 +265,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   /// Internal functions
   function _complete() internal {
-    gameInfo[gameId].GameStatus = GameStatus.Completed
+    gameInfo[gameId].status = GameStatus.Completed;
   }
 
   function _buy(address _to) internal returns (uint256 _id) {
@@ -266,9 +275,9 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     for (uint8 i = 0; i < maxRound; ++i) {
       playerStatus[_id][i] = PlayerStatus.Pending;
     }
-    
+
     lastPlayerId = _id;
-    totalPlayer = totalPlayer.add(1)
+    gameInfo[gameId].totalPlayer = gameInfo[gameId].totalPlayer.add(1);
   }
 
   function _check(uint256 _id) internal onlyMaster(_id) returns (bool _survived) {
