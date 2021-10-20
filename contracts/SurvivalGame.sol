@@ -155,8 +155,9 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   /// Operator's functions
   /// @dev create a new game and open for registration
-  function create(uint256 ticketPrice, uint256 burnBps) external onlyOper onlyCompleted {
+  function create(uint256 ticketPrice, uint256 burnBps, uint256[6] prizeDistributions, uint256[6] survivalsBps) external onlyOper onlyCompleted {
     roundNumber = 0
+    gameId = gameId.add(1)
     info = new GameInfo({
       roundNumber: 0
       finalPrizeInLatte: 0
@@ -164,14 +165,38 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
       costPerTicket: ticketPrice
       burnBps: burnBps
     })
-    // set total start with 0
+    gameInfo[gameId] = info
+    for (uint256 i = 0; i < maxRound; ++i) {
+      initRound = new RoundInfo({
+        prizeDistribution: prizeDistributions[i]
+        survivalBps: survivalsBps[i]
+        stopVoteCount: 0
+        continueVoteCount: 0
+        surviverCount: 0
+        entropy: 0
+      })
+      roundInfo[gameInfo][i] = initRound
+    }
   }
 
   /// @dev close registration and start round 1
-  function start() external onlyOper onlyOpened {}
+  function start() external onlyOper onlyOpened {
+    roundNumber = 1
+    roundInfo[roundNumber].surviverCount = totalPlayer
+    // TODO: call random from chainlink
+  }
 
   /// @dev sum up each round and either continue next round or complete the game
-  function proceed() external onlyOper onlyStarted {}
+  function proceed() external onlyOper onlyStarted {
+    if (roundInfo[roundNumber].stopVoteCount > roundInfo[roundNumber].continueVoteCount) || roundNumber == maxRound {
+      _complete()
+    } else {
+      _newRound = roundNumber.add(1)
+      // TODO: call random from chainlink
+      roundNumber = _newRound
+      gameInfo[gameId].roundNumber = _newRound
+    }
+  }
 
   /// @dev force complete the game
   function complete() external onlyOper onlyStarted {
@@ -211,14 +236,20 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   function claimBatch(uint256[] calldata _ids, address _to) external {}
 
   /// Internal functions
-  function _complete() internal {}
+  function _complete() internal {
+    gameInfo[gameId].GameStatus = GameStatus.Completed
+  }
 
   function _buy(address _to) internal returns (uint256 _id) {
     _id = lastPlayerId.add(1);
     playerOwner[_id] = _to;
     playerGame[_id] = gameId;
-    playerStatus[gameId][roundNumber] = PlayerStatus.Pending;
+    for (uint8 i = 0; i < maxRound; ++i) {
+      playerStatus[_id][i] = PlayerStatus.Pending;
+    }
+    
     lastPlayerId = _id;
+    totalPlayer = totalPlayer.add(1)
   }
 
   function _check(uint256 _id) internal onlyMaster(_id) {}
