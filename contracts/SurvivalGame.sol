@@ -48,8 +48,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   enum PlayerStatus {
     Pending, // The player have to check was killed
     Dead, // The player was killed
-    Voting, // The player waiting to vote
-    Survived // The player is survived of round
+    Survived // The player survived the round
   }
 
   enum VoteType {
@@ -83,9 +82,12 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   mapping(uint256 => mapping(uint256 => RoundInfo)) public roundInfo;
 
   // Player
-  mapping(uint256 => address) public playerOwner;
+  mapping(uint256 => address) public playerMaster;
   mapping(uint256 => uint256) public playerGame;
+  // player id => round number => status
   mapping(uint256 => mapping(uint8 => PlayerStatus)) public playerStatus;
+  // game id => round number => master address => remaining votes
+  mapping(uint256 => mapping(uint8 => mapping(address => uint256))) public remainingVote;
 
   /**
    * @notice Constructor
@@ -114,7 +116,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   /// @dev only the master of the player can continue an execution
   modifier onlyMaster(uint256 _id) {
-    require(playerOwner[_id] == msg.sender, "SurvialGame::onlyMaster::only player's master");
+    require(playerMaster[_id] == msg.sender, "SurvialGame::onlyMaster::only player's master");
     _;
   }
 
@@ -222,12 +224,29 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     latte.safeTransferFrom(msg.sender, address(this), totalPrice);
     latte.safeTransferFrom(address(this), DEAD_ADDR, totalLatteBurn);
     _ids = new uint256[](_size);
-    for (uint256 i = 0; i < _size; ++i) {
+    for (uint256 i = 0; i < _size; i++) {
       _ids[i] = _buy(_to);
     }
   }
 
-  function checkBatch(uint256[] calldata _ids) external onlyStarted returns (uint256[] memory _survivor_ids) {}
+  /// @dev check if players are not eliminated
+  /// @param _ids - a list of player
+  function checkBatch(uint256[] calldata _ids) external onlyStarted returns (bool[] memory _canVotes) {
+    uint256 size = _ids.length;
+    require(size != 0, "SurvivalGame::checkBatch::no players to be checked");
+    require(size <= maxBatchSize, "SurvivalGame::checkBatch::size must not exceed max batch size");
+    _canVotes = new bool[](size);
+    for (uint256 i = 0; i < size; i++) {
+      uint256 id = _ids[i];
+      _canVotes[i] = _check(id);
+    }
+  }
+
+  /// @dev check if a player is not eliminated
+  /// @param _id - the player id
+  function check(uint256 _id) external onlyStarted returns (bool _canVote) {
+    _canVote = _check(_id);
+  }
 
   function voteContinue(uint256[] calldata _ids) external onlyStarted {}
 
@@ -242,7 +261,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   function _buy(address _to) internal returns (uint256 _id) {
     _id = lastPlayerId.add(1);
-    playerOwner[_id] = _to;
+    playerMaster[_id] = _to;
     playerGame[_id] = gameId;
     for (uint8 i = 0; i < maxRound; ++i) {
       playerStatus[_id][i] = PlayerStatus.Pending;
@@ -252,7 +271,30 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     totalPlayer = totalPlayer.add(1)
   }
 
-  function _check(uint256 _id) internal onlyMaster(_id) {}
+  function _check(uint256 _id) internal onlyMaster(_id) returns (bool _survived) {
+    if (roundNumber > 1) {
+      require(
+        playerStatus[_id][roundNumber.sub(1)] == PlayerStatus.Survived,
+        "SurvivalGame::_check::player has been eliminated"
+      );
+    }
+    require(playerStatus[_id][roundNumber] == PlayerStatus.Pending, "SurvivalGame::_check::player has been checked");
+    RoundInfo memory info = roundInfo[gameId][roundNumber];
+    uint256 entropy = info.entropy;
+    require(entropy != 0, "SurvivalGame::_check::no entropy");
+    uint256 survivalBps = info.survivalBps;
+    require(survivalBps != 0, "SurvivalGame::_check::no survival BPS");
+    bytes memory data = abi.encodePacked(entropy, address(this), msg.sender, _id);
+
+    // eliminated if hash value mod 100 more than the survive percent
+    _survived = (uint256(keccak256(data)) % 1e2) > survivalBps.div(1e4);
+    if (_survived) {
+      playerStatus[_id][roundNumber] = PlayerStatus.Survived;
+      remainingVote[gameId][roundNumber][msg.sender].add(1);
+    } else {
+      playerStatus[_id][roundNumber] = PlayerStatus.Dead;
+    }
+  }
 
   function _vote(uint256 _id, VoteType _type) internal onlyMaster(_id) {}
 
