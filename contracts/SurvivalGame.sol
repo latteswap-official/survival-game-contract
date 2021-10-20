@@ -28,9 +28,10 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   // State variable
   // Instance of LATTE token (collateral currency)
   IERC20 internal latte;
-  uint256 gameId;
-  uint256 prizePoolInLatte;
-  uint8 roundNumber;
+  uint256 internal gameId;
+  uint256 internal lastPlayerId;
+  uint256 internal prizePoolInLatte;
+  uint8 internal roundNumber;
   uint8 constant maxRound = 6;
 
   bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE"); // role for operator stuff
@@ -47,6 +48,11 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     Dead, // The player was killed
     Voting, // The player waiting to vote
     Survived // The player is survived of round
+  }
+
+  enum VoteType {
+    Continue,
+    Stop
   }
 
   // All the needed info around the game
@@ -90,14 +96,86 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     latte = IERC20(_latte);
     gameId = 0;
     roundNumber = 0;
+    lastPlayerId = 0;
 
     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     _setupRole(OPERATOR_ROLE, _msgSender());
   }
 
+  /// Modifier
   /// @dev only the one having a OPERATOR_ROLE can continue an execution
   modifier onlyOper() {
     require(hasRole(OPERATOR_ROLE, _msgSender()), "SurvialGame::onlyOper::only OPERATOR role");
     _;
   }
+
+  /// @dev only the master of the player can continue an execution
+  modifier onlyMaster(uint256 _id) {
+    require(playerOwner[_id] == msg.sender, "SurvialGame::onlyMaster::only player's master");
+    _;
+  }
+
+  /// @dev only before game starting
+  modifier onlyOpened() {
+    require(gameInfo[gameId].status == GameStatus.Opened, "SurvialGame::onlyOpened::only before game starting");
+    _;
+  }
+
+  /// @dev only after game started
+  modifier onlyStarted() {
+    require(gameInfo[gameId].status == GameStatus.Started, "SurvialGame::onlyStarted::only after game started");
+    _;
+  }
+
+  /// @dev only after game completed
+  modifier onlyCompleted() {
+    require(gameInfo[gameId].status == GameStatus.Completed, "SurvialGame::onlyCompleted::only after game completed");
+    _;
+  }
+
+  /// Getter functions
+  function currentGame() external returns (uint256 _gameId, uint8 _roundNumber) {}
+
+  function currentPrizePoolInLatte() external returns (uint256 _amount) {}
+
+  function getLastRoundSurvivors() external returns (uint256 _amount) {}
+
+  /// Operator's functions
+  /// @dev create a new game and open for registration
+  function create() external onlyOper onlyCompleted {}
+
+  /// @dev close registration and start round 1
+  function start() external onlyOper onlyOpened {}
+
+  /// @dev sum up each round and either continue next round or complete the game
+  function proceed() external onlyOper onlyStarted {}
+
+  /// @dev force complete the game
+  function complete() external onlyOper onlyStarted {
+    _complete();
+  }
+
+  /// User's functions
+  /// @dev buy players and give ownership to _to
+  function buyBatch(uint256 _playerAmount, address _to) external onlyOpened {}
+
+  function checkBatch(uint256[] calldata _ids) external onlyStarted returns (uint256[] memory _survivor_ids) {}
+
+  function voteContinue(uint256[] calldata _ids) external onlyStarted {}
+
+  function voteStop(uint256[] calldata _ids) external onlyStarted {}
+
+  function claimBatch(uint256[] calldata _ids, address _to) external {}
+
+  /// Internal functions
+  function _complete() internal {}
+
+  function _buy(address _to) internal {}
+
+  function _check(uint256 _id) internal onlyMaster(_id) {}
+
+  function _vote(uint256 _id, VoteType _type) internal onlyMaster(_id) {}
+
+  /// @dev mark player as claimed and return claim amount
+  function _claim(uint256 _id) internal onlyMaster(_id) returns (bool) {}
 }
