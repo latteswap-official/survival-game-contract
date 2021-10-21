@@ -176,7 +176,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
       totalLatteBurn = totalPrice.mul(burnBps).div(1e4);
     }
     latte.safeTransferFrom(msg.sender, address(this), totalPrice);
-    latte.safeTransferFrom(address(this), DEAD_ADDR, totalLatteBurn);
+    latte.safeTransfer(DEAD_ADDR, totalLatteBurn);
     _ids = new uint256[](_size);
     for (uint256 i = 0; i < _size; i++) {
       _ids[i] = _buy(_to);
