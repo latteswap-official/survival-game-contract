@@ -134,16 +134,16 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   }
 
   /// Getter functions
-  function currentGame() external returns (uint256 _gameId, uint8 _roundNumber) {
+  function currentGame() external view returns (uint256 _gameId, uint8 _roundNumber) {
     _gameId = gameId;
     _roundNumber = roundNumber;
   }
 
-  function currentPrizePoolInLatte() external returns (uint256 _amount) {
+  function currentPrizePoolInLatte() external view returns (uint256 _amount) {
     _amount = prizePoolInLatte;
   }
 
-  function lastRoundSurvivors() external onlyStarted returns (uint256 _amount) {
+  function lastRoundSurvivors() external view onlyStarted returns (uint256 _amount) {
     if (roundNumber == 1) {
       _amount = gameInfo[gameId].totalPlayer;
     } else {
