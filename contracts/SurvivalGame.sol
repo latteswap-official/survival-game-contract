@@ -14,9 +14,9 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-
 import "./math/SafeMath8.sol";
 import "./math/SafeMath16.sol";
+import "./interfaces/IRandomNumberGenerator.sol";
 
 contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessControlUpgradeable {
   // Libraries
@@ -37,6 +37,11 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE"); // role for operator stuff
   address public constant DEAD_ADDR = 0x000000000000000000000000000000000000dEaD;
+
+  // Storing of the randomness generator
+  IRandomNumberGenerator internal randomGenerator_;
+  // Request ID for random number
+  bytes32 internal requestId;
 
   // Represents the status of the game
   enum GameStatus {
@@ -93,11 +98,10 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
    * @notice Constructor
    * @param _latte: LATTE token contract
    */
-  function initialize(address _latte) external initializer {
+  function initialize(address _latte, address _IRandomNumberGenerator) external initializer {
     OwnableUpgradeable.__Ownable_init();
     ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
     AccessControlUpgradeable.__AccessControl_init();
-
     latte = IERC20(_latte);
     gameId = 0;
     roundNumber = 0;
@@ -105,6 +109,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     _setupRole(OPERATOR_ROLE, _msgSender());
+    randomGenerator_ = IRandomNumberGenerator(_IRandomNumberGenerator);
   }
 
   /// Modifier
@@ -190,13 +195,13 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {
+    requestId = randomGenerator_.getRandomNumber(gameId, 1);
     roundNumber = 1;
     gameInfo[gameId].roundNumber = 1;
-    // TODO: call random from chainlink
   }
 
   /// @dev sum up each round and either continue next round or complete the game
-  function proceed() external onlyOper onlyStarted {
+  function processing() external onlyOper onlyStarted {
     if (
       roundInfo[gameId][roundNumber].stopVoteCount > roundInfo[gameId][roundNumber].continueVoteCount ||
       roundNumber == maxRound ||
@@ -204,7 +209,18 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     ) {
       _complete();
     } else {
-      // TODO: call random from chainlink
+      requestId = randomGenerator_.getRandomNumber(gameId, roundNumber);
+    }
+  }
+
+  function proceed(
+    uint256 _gameId,
+    uint8 _roundId,
+    bytes32 _requestId,
+    uint256 _randomNumber
+  ) external {
+    if (requestId == _requestId) {
+      roundInfo[_gameId][_roundId].entropy = _randomNumber;
       roundNumber = roundNumber.add(1);
       gameInfo[gameId].roundNumber = roundNumber;
     }
