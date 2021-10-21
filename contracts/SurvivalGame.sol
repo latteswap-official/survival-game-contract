@@ -266,7 +266,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   /// Internal functions
   function _complete() internal {
-    uint256 finalPrizeInLatte = prizePoolInLatte.mul(roundInfo[gameId][roundNumber].prizeDistribution).div(100);
+    uint256 finalPrizeInLatte = prizePoolInLatte.mul(roundInfo[gameId][roundNumber].prizeDistribution).div(1e4);
     gameInfo[gameId].finalPrizeInLatte = finalPrizeInLatte;
     gameInfo[gameId].status = GameStatus.Completed;
     prizePoolInLatte = prizePoolInLatte.sub(finalPrizeInLatte);
