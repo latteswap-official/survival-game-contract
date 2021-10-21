@@ -34,6 +34,9 @@ contract SurvivalGame is
   // State variable
   // Instance of LATTE token (collateral currency)
   IERC20 internal latte;
+  // Instance of the random number generator
+  IRandomNumberGenerator internal entropyGenerator;
+
   uint256 internal gameId;
   uint256 internal lastPlayerId;
   uint256 internal prizePoolInLatte;
@@ -43,9 +46,6 @@ contract SurvivalGame is
 
   bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE"); // role for operator stuff
   address public constant DEAD_ADDR = 0x000000000000000000000000000000000000dEaD;
-
-  // Storing of the randomness generator
-  IRandomNumberGenerator internal entropyGenerator;
 
   // Represents the status of the game
   enum GameStatus {
@@ -192,6 +192,7 @@ contract SurvivalGame is
       burnBps: burnBps
     });
     gameInfo[gameId] = newGameInfo;
+    // Warning: Round index start from 1 not 0
     for (uint256 i = 1; i <= maxRound; ++i) {
       RoundInfo memory initRound = RoundInfo({
         prizeDistribution: prizeDistributions[i - 1],
@@ -267,7 +268,7 @@ contract SurvivalGame is
     latte.safeTransferFrom(msg.sender, address(this), totalPrice);
     latte.safeTransfer(DEAD_ADDR, totalLatteBurn);
     _ids = new uint256[](_size);
-    for (uint256 i = 0; i < _size; i++) {
+    for (uint256 i = 0; i < _size; ++i) {
       _ids[i] = _buy(_to);
     }
   }
@@ -279,7 +280,7 @@ contract SurvivalGame is
     require(size != 0, "SurvivalGame::checkBatch::no players to be checked");
     require(size <= maxBatchSize, "SurvivalGame::checkBatch::size must not exceed max batch size");
     _canVotes = new bool[](size);
-    for (uint256 i = 0; i < size; i++) {
+    for (uint256 i = 0; i < size; ++i) {
       uint256 id = _ids[i];
       _canVotes[i] = _check(id);
     }
