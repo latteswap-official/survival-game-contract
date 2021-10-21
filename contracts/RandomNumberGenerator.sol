@@ -16,8 +16,6 @@ contract RandomNumberGenerator is VRFConsumerBase {
   uint256 internal fee;
   address internal requester;
   uint256 public randomResult;
-  uint256 public currentGameId;
-  uint8 public currentRoundNumber;
   address public survivalGame;
 
   modifier onlySurvivalGame() {
@@ -40,15 +38,13 @@ contract RandomNumberGenerator is VRFConsumerBase {
   /**
    * Requests randomness from a user-provided seed
    */
-  function getRandomNumber(uint256 gameId, uint8 roundNumber) public onlySurvivalGame returns (bytes32 requestId) {
+  function getRandomNumber() public onlySurvivalGame returns (bytes32 requestId) {
     require(keyHash != bytes32(0), "RandomNumberGenerator::getRandomNumber::Must have valid key hash");
     require(
       LINK.balanceOf(address(this)) >= fee,
       "RandomNumberGenerator::getRandomNumber::Not enough LINK - fill contract with faucet"
     );
     requester = msg.sender;
-    currentGameId = gameId;
-    currentRoundNumber = roundNumber;
     return requestRandomness(keyHash, fee);
   }
 
@@ -56,7 +52,7 @@ contract RandomNumberGenerator is VRFConsumerBase {
    * Callback function used by VRF Coordinator
    */
   function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
-    ISurvivalGame(requester).numberRandomed(currentGameId, currentRoundNumber, requestId, randomness);
+    ISurvivalGame(requester).proceed(requestId, randomness);
     randomResult = randomness;
   }
 }

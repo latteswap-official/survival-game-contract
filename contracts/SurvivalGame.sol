@@ -17,8 +17,9 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "./math/SafeMath8.sol";
 import "./math/SafeMath16.sol";
 import "./interfaces/IRandomNumberGenerator.sol";
+import "./interfaces/ISurvivalGame.sol";
 
-contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessControlUpgradeable {
+contract SurvivalGame is ISurvivalGame, OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessControlUpgradeable {
   // Libraries
   using SafeMath for uint256;
   using SafeMath8 for uint8;
@@ -39,7 +40,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   address public constant DEAD_ADDR = 0x000000000000000000000000000000000000dEaD;
 
   // Storing of the randomness generator
-  IRandomNumberGenerator internal randomGenerator_;
+  IRandomNumberGenerator internal entropyGenerator;
   // Request ID for random number
   bytes32 internal requestId;
 
@@ -98,7 +99,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
    * @notice Constructor
    * @param _latte: LATTE token contract
    */
-  function initialize(address _latte, address _IRandomNumberGenerator) external initializer {
+  function initialize(address _latte, address _entropyGenerator) external initializer {
     OwnableUpgradeable.__Ownable_init();
     ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
     AccessControlUpgradeable.__AccessControl_init();
@@ -109,7 +110,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     _setupRole(OPERATOR_ROLE, _msgSender());
-    randomGenerator_ = IRandomNumberGenerator(_IRandomNumberGenerator);
+    entropyGenerator = IRandomNumberGenerator(_entropyGenerator);
   }
 
   /// Modifier
@@ -122,6 +123,12 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   /// @dev only the master of the player can continue an execution
   modifier onlyMaster(uint256 _id) {
     require(playerMaster[_id] == msg.sender, "SurvialGame::onlyMaster::only player's master");
+    _;
+  }
+
+  /// @dev only the entropy generator can continue an execution
+  modifier onlyEntropyGenerator() {
+    require(msg.sender == address(entropyGenerator), "SurvialGame::onlyEntropyGenerator::only after game completed");
     _;
   }
 
@@ -195,9 +202,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {
-    requestId = randomGenerator_.getRandomNumber(gameId, 1);
-    roundNumber = 1;
-    gameInfo[gameId].roundNumber = 1;
+    requestId = entropyGenerator.getRandomNumber();
   }
 
   /// @dev sum up each round and either continue next round or complete the game
@@ -209,20 +214,16 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     ) {
       _complete();
     } else {
-      requestId = randomGenerator_.getRandomNumber(gameId, roundNumber);
+      requestId = entropyGenerator.getRandomNumber();
     }
   }
 
-  function proceed(
-    uint256 _gameId,
-    uint8 _roundId,
-    bytes32 _requestId,
-    uint256 _randomNumber
-  ) external {
+  function proceed(bytes32 _requestId, uint256 _randomNumber) external override onlyEntropyGenerator {
     if (requestId == _requestId) {
-      roundInfo[_gameId][_roundId].entropy = _randomNumber;
+      roundInfo[gameId][roundNumber].entropy = _randomNumber;
       roundNumber = roundNumber.add(1);
       gameInfo[gameId].roundNumber = roundNumber;
+      gameInfo[gameId].status = GameStatus.Started;
     }
   }
 

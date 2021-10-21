@@ -12,5 +12,5 @@ interface IRandomNumberGenerator {
   /**
    * Requests randomness from a user-provided seed
    */
-  function getRandomNumber(uint256 gameId, uint8 roundNumber) external returns (bytes32 requestId);
+  function getRandomNumber() external returns (bytes32 requestId);
 }
