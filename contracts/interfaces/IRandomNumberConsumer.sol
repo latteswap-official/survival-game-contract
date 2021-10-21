@@ -8,8 +8,6 @@
 
 pragma solidity 0.6.12;
 
-interface ISurvivalGame {
-  function proceed(bytes32 _requestId, uint256 _randomNumber) external;
+interface IRandomNumberConsumer {
+  function consumeRandomNumber(bytes32 _requestId, uint256 _randomNumber) external;
 }
-
-// currentGameId, currentRoundId, requestId, randomness

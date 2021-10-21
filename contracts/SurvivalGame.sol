@@ -17,9 +17,14 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "./math/SafeMath8.sol";
 import "./math/SafeMath16.sol";
 import "./interfaces/IRandomNumberGenerator.sol";
-import "./interfaces/ISurvivalGame.sol";
+import "./interfaces/IRandomNumberConsumer.sol";
 
-contract SurvivalGame is ISurvivalGame, OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessControlUpgradeable {
+contract SurvivalGame is
+  IRandomNumberConsumer,
+  OwnableUpgradeable,
+  ReentrancyGuardUpgradeable,
+  AccessControlUpgradeable
+{
   // Libraries
   using SafeMath for uint256;
   using SafeMath8 for uint8;
@@ -41,8 +46,6 @@ contract SurvivalGame is ISurvivalGame, OwnableUpgradeable, ReentrancyGuardUpgra
 
   // Storing of the randomness generator
   IRandomNumberGenerator internal entropyGenerator;
-  // Request ID for random number
-  bytes32 internal requestId;
 
   // Represents the status of the game
   enum GameStatus {
@@ -78,6 +81,8 @@ contract SurvivalGame is ISurvivalGame, OwnableUpgradeable, ReentrancyGuardUpgra
     uint256 stopVoteCount;
     uint256 continueVoteCount;
     uint256 survivorCount;
+    // Request ID for random number
+    bytes32 requestId;
     uint256 entropy;
   }
 
@@ -187,13 +192,14 @@ contract SurvivalGame is ISurvivalGame, OwnableUpgradeable, ReentrancyGuardUpgra
       burnBps: burnBps
     });
     gameInfo[gameId] = newGameInfo;
-    for (uint256 i = 0; i < maxRound; ++i) {
+    for (uint256 i = 1; i <= maxRound; ++i) {
       RoundInfo memory initRound = RoundInfo({
-        prizeDistribution: prizeDistributions[i],
-        survivalBps: survivalsBps[i],
+        prizeDistribution: prizeDistributions[i - 1],
+        survivalBps: survivalsBps[i - 1],
         stopVoteCount: 0,
         continueVoteCount: 0,
         survivorCount: 0,
+        requestId: bytes32(0),
         entropy: 0
       });
       roundInfo[gameId][i] = initRound;
@@ -202,7 +208,7 @@ contract SurvivalGame is ISurvivalGame, OwnableUpgradeable, ReentrancyGuardUpgra
 
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {
-    requestId = entropyGenerator.getRandomNumber();
+    _requestRandomNumber();
   }
 
   /// @dev sum up each round and either continue next round or complete the game
@@ -214,17 +220,27 @@ contract SurvivalGame is ISurvivalGame, OwnableUpgradeable, ReentrancyGuardUpgra
     ) {
       _complete();
     } else {
-      requestId = entropyGenerator.getRandomNumber();
+      _requestRandomNumber();
     }
   }
 
-  function proceed(bytes32 _requestId, uint256 _randomNumber) external override onlyEntropyGenerator {
-    if (requestId == _requestId) {
-      roundInfo[gameId][roundNumber].entropy = _randomNumber;
-      roundNumber = roundNumber.add(1);
-      gameInfo[gameId].roundNumber = roundNumber;
-      gameInfo[gameId].status = GameStatus.Started;
-    }
+  function _requestRandomNumber() internal {
+    bytes32 requestId = roundInfo[gameId][roundNumber + 1].requestId;
+    require(requestId == bytes32(0), "SurvivalGame::_requestRandomNumber::random numnber has been requested");
+    roundInfo[gameId][roundNumber + 1].requestId = entropyGenerator.randomNumber();
+  }
+
+  function consumeRandomNumber(bytes32 _requestId, uint256 _randomNumber) external override onlyEntropyGenerator {
+    bytes32 requestId = roundInfo[gameId][roundNumber + 1].requestId;
+    require(requestId == _requestId, "SurvivalGame::consumeRandomNumber:: invalid requestId");
+    _proceed(_randomNumber);
+  }
+
+  function _proceed(uint256 _entropy) internal {
+    roundNumber = roundNumber.add(1);
+    gameInfo[gameId].roundNumber = roundNumber;
+    gameInfo[gameId].status = GameStatus.Started;
+    roundInfo[gameId][roundNumber].entropy = _entropy;
   }
 
   /// @dev force complete the game
