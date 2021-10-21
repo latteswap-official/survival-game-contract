@@ -71,7 +71,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     uint256 survivalBps;
     uint256 stopVoteCount;
     uint256 continueVoteCount;
-    uint256 surviverCount;
+    uint256 survivorCount;
     uint256 entropy;
   }
 
@@ -148,11 +148,11 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     _amount = prizePoolInLatte;
   }
 
-  function getLastRoundSurvivors() external onlyStarted returns (uint256 _amount) {
+  function lastRoundSurvivors() external onlyStarted returns (uint256 _amount) {
     if (roundNumber == 1) {
       _amount = gameInfo[gameId].totalPlayer;
     } else {
-      _amount = roundInfo[gameId][roundNumber.sub(1)].surviverCount;
+      _amount = roundInfo[gameId][roundNumber.sub(1)].survivorCount;
     }
   }
 
@@ -161,8 +161,8 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   function create(
     uint256 ticketPrice,
     uint256 burnBps,
-    uint256[6] memory prizeDistributions,
-    uint256[6] memory survivalsBps
+    uint256[6] calldata prizeDistributions,
+    uint256[6] calldata survivalsBps
   ) external onlyOper onlyCompleted {
     roundNumber = 0;
     gameId = gameId.add(1);
@@ -181,7 +181,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
         survivalBps: survivalsBps[i],
         stopVoteCount: 0,
         continueVoteCount: 0,
-        surviverCount: 0,
+        survivorCount: 0,
         entropy: 0
       });
       roundInfo[gameId][i] = initRound;
@@ -191,7 +191,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {
     roundNumber = 1;
-    roundInfo[gameId][roundNumber].surviverCount = gameInfo[gameId].totalPlayer;
+    gameInfo[gameId].roundNumber = 1;
     // TODO: call random from chainlink
   }
 
@@ -199,7 +199,8 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   function proceed() external onlyOper onlyStarted {
     if (
       roundInfo[gameId][roundNumber].stopVoteCount > roundInfo[gameId][roundNumber].continueVoteCount ||
-      roundNumber == maxRound
+      roundNumber == maxRound ||
+      roundInfo[gameId][roundNumber].survivorCount == 0
     ) {
       _complete();
     } else {
@@ -265,7 +266,10 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   /// Internal functions
   function _complete() internal {
+    uint256 finalPrizeInLatte = prizePoolInLatte.mul(roundInfo[gameId][roundNumber].prizeDistribution).div(100);
+    gameInfo[gameId].finalPrizeInLatte = finalPrizeInLatte;
     gameInfo[gameId].status = GameStatus.Completed;
+    prizePoolInLatte = prizePoolInLatte.sub(finalPrizeInLatte);
   }
 
   function _buy(address _to) internal returns (uint256 _id) {
