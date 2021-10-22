@@ -37,36 +37,30 @@ contract SurvivalGame is
   // Instance of the random number generator
   IRandomNumberGenerator internal entropyGenerator;
 
-  uint256 internal gameId;
-  uint256 internal lastPlayerId;
-  uint256 internal prizePoolInLatte;
-  uint8 internal roundNumber;
-  uint8 constant maxRound = 6;
-  uint8 constant maxBatchSize = 10;
+  uint256 internal gameId = 0;
+  uint256 internal nonce = 0;
+  uint256 internal prizePoolInLatte = 0;
 
+  // Constants
+  uint8 public constant maxRound = 6;
+  uint8 public constant maxBatchSize = 10;
   bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE"); // role for operator stuff
   address public constant DEAD_ADDR = 0x000000000000000000000000000000000000dEaD;
 
   // Represents the status of the game
   enum GameStatus {
+    NotStarted, //The game has not started yet
     Opened, // The game has been opened for the registration
     Processing, // The game is preparing for the next state
     Started, // The game has been started
     Completed // The game has been completed and might have the winners
   }
 
-  enum PlayerStatus {
-    Pending, // The player has to check was killed
-    Dead, // The player was killed
-    Survived, // The player survived the round
-    Claimed // The player has claimed reward
-  }
-
   // All the needed info around the game
   struct GameInfo {
     GameStatus status;
     uint8 roundNumber;
-    uint256 finalPrizeInLatte;
+    uint256 finalPrizePerUser;
     uint256 costPerTicket;
     uint256 burnBps;
     uint256 totalPlayer;
@@ -83,48 +77,46 @@ contract SurvivalGame is
     uint256 entropy;
   }
 
-  // GameInfo ID's to info
+  struct UserInfo {
+    uint256 remainingPlayerCount;
+    uint256 remainingVoteCount;
+    bool claimed;
+  }
+
+  // Game Info
+  // gameId => gameInfo
   mapping(uint256 => GameInfo) public gameInfo;
 
   // Round Info
-  mapping(uint256 => mapping(uint256 => RoundInfo)) public roundInfo;
+  // gameId => roundNumber => roundInfo
+  mapping(uint256 => mapping(uint8 => RoundInfo)) public roundInfo;
 
-  // Player
-  mapping(uint256 => address) public playerMaster;
-  mapping(uint256 => uint256) public playerGame;
-  // player id => round number => status
-  mapping(uint256 => mapping(uint8 => PlayerStatus)) public playerStatus;
-  // game id => round number => master address => remaining votes
-  mapping(uint256 => mapping(uint8 => mapping(address => uint256))) public remainingVote;
+  // User Info
+  // gameId => roundNumber => userAddress => userInfo
+  mapping(uint256 => mapping(uint8 => mapping(address => UserInfo))) public userInfo;
 
   /**
    * @notice Constructor
    * @param _latte: LATTE token contract
    */
   function initialize(address _latte, address _entropyGenerator) external initializer {
+    // init functions
     OwnableUpgradeable.__Ownable_init();
     ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
     AccessControlUpgradeable.__AccessControl_init();
-    latte = IERC20(_latte);
-    gameId = 0;
-    roundNumber = 0;
-    lastPlayerId = 0;
 
+    latte = IERC20(_latte);
+    entropyGenerator = IRandomNumberGenerator(_entropyGenerator);
+
+    // create and assign default roles
     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     _setupRole(OPERATOR_ROLE, _msgSender());
-    entropyGenerator = IRandomNumberGenerator(_entropyGenerator);
   }
 
   /// Modifier
   /// @dev only the one having a OPERATOR_ROLE can continue an execution
   modifier onlyOper() {
     require(hasRole(OPERATOR_ROLE, _msgSender()), "SurvialGame::onlyOper::only OPERATOR role");
-    _;
-  }
-
-  /// @dev only the master of the player can continue an execution
-  modifier onlyMaster(uint256 _id) {
-    require(playerMaster[_id] == msg.sender, "SurvialGame::onlyMaster::only player's master");
     _;
   }
 
@@ -146,16 +138,25 @@ contract SurvivalGame is
     _;
   }
 
-  /// @dev only after game completed
+  /// @dev only before game opened
+  modifier onlyBeforeOpen() {
+    require(
+      gameInfo[gameId].status == GameStatus.Completed || gameInfo[gameId].status == GameStatus.NotStarted,
+      "SurvialGame::onlyBeforeOpen::only before game opened"
+    );
+    _;
+  }
+
+  /// @dev only before game opened
   modifier onlyCompleted() {
-    require(gameInfo[gameId].status == GameStatus.Completed, "SurvialGame::onlyCompleted::only after game completed");
+    require(gameInfo[gameId].status == GameStatus.Completed, "SurvialGame::onlyCompleted::only before game opened");
     _;
   }
 
   /// Getter functions
   function currentGame() external view returns (uint256 _gameId, uint8 _roundNumber) {
     _gameId = gameId;
-    _roundNumber = roundNumber;
+    _roundNumber = gameInfo[gameId].roundNumber;
   }
 
   function currentPrizePoolInLatte() external view returns (uint256 _amount) {
@@ -163,44 +164,46 @@ contract SurvivalGame is
   }
 
   function lastRoundSurvivors() external view onlyStarted returns (uint256 _amount) {
-    if (roundNumber == 1) {
-      _amount = gameInfo[gameId].totalPlayer;
+    GameInfo memory _gameInfo = gameInfo[gameId];
+    if (_gameInfo.roundNumber == 1) {
+      _amount = _gameInfo.totalPlayer;
     } else {
-      _amount = roundInfo[gameId][roundNumber.sub(1)].survivorCount;
+      _amount = roundInfo[gameId][_gameInfo.roundNumber.sub(1)].survivorCount;
     }
   }
 
   /// Operator's functions
   /// @dev create a new game and open for registration
   function create(
-    uint256 ticketPrice,
-    uint256 burnBps,
+    uint256 _costPerTicket,
+    uint256 _burnBps,
     uint256[6] calldata prizeDistributions,
     uint256[6] calldata survivalsBps
-  ) external onlyOper onlyCompleted {
-    roundNumber = 0;
+  ) external onlyOper onlyBeforeOpen {
     gameId = gameId.add(1);
-    GameInfo memory newGameInfo = GameInfo({
+    // Note: nonce is not reset
+
+    gameInfo[gameId] = GameInfo({
       status: GameStatus.Opened,
       roundNumber: 0,
-      finalPrizeInLatte: 0,
+      finalPrizePerUser: 0,
       totalPlayer: 0,
-      costPerTicket: ticketPrice,
-      burnBps: burnBps
+      costPerTicket: _costPerTicket,
+      burnBps: _burnBps
     });
-    gameInfo[gameId] = newGameInfo;
+
     // Warning: Round index start from 1 not 0
-    for (uint256 i = 1; i <= maxRound; ++i) {
-      RoundInfo memory initRound = RoundInfo({
-        prizeDistribution: prizeDistributions[i - 1],
-        survivalBps: survivalsBps[i - 1],
+    for (uint8 i = 1; i <= maxRound; ++i) {
+      RoundInfo memory _roundInfo = RoundInfo({
+        prizeDistribution: prizeDistributions[i.sub(1)],
+        survivalBps: survivalsBps[i.sub(1)],
         stopVoteCount: 0,
         continueVoteCount: 0,
         survivorCount: 0,
         requestId: bytes32(0),
         entropy: 0
       });
-      roundInfo[gameId][i] = initRound;
+      roundInfo[gameId][i] = _roundInfo;
     }
   }
 
@@ -212,6 +215,7 @@ contract SurvivalGame is
 
   /// @dev sum up each round and either continue next round or complete the game
   function processing() external onlyOper onlyStarted {
+    uint8 roundNumber = gameInfo[gameId].roundNumber;
     if (
       roundInfo[gameId][roundNumber].stopVoteCount > roundInfo[gameId][roundNumber].continueVoteCount ||
       roundNumber == maxRound ||
@@ -225,22 +229,24 @@ contract SurvivalGame is
   }
 
   function _requestRandomNumber() internal {
-    bytes32 requestId = roundInfo[gameId][roundNumber + 1].requestId;
+    uint8 nextRoundNumber = gameInfo[gameId].roundNumber.add(1);
+    bytes32 requestId = roundInfo[gameId][nextRoundNumber].requestId;
     require(requestId == bytes32(0), "SurvivalGame::_requestRandomNumber::random numnber has been requested");
-    roundInfo[gameId][roundNumber + 1].requestId = entropyGenerator.randomNumber();
+    roundInfo[gameId][nextRoundNumber].requestId = entropyGenerator.randomNumber();
   }
 
   function consumeRandomNumber(bytes32 _requestId, uint256 _randomNumber) external override onlyEntropyGenerator {
-    bytes32 requestId = roundInfo[gameId][roundNumber + 1].requestId;
+    uint8 nextRoundNumber = gameInfo[gameId].roundNumber.add(1);
+    bytes32 requestId = roundInfo[gameId][nextRoundNumber].requestId;
     require(requestId == _requestId, "SurvivalGame::consumeRandomNumber:: invalid requestId");
     _proceed(_randomNumber);
   }
 
   function _proceed(uint256 _entropy) internal {
-    roundNumber = roundNumber.add(1);
-    gameInfo[gameId].roundNumber = roundNumber;
+    uint8 nextRoundNumber = gameInfo[gameId].roundNumber.add(1);
+    roundInfo[gameId][nextRoundNumber].entropy = _entropy;
+    gameInfo[gameId].roundNumber = nextRoundNumber;
     gameInfo[gameId].status = GameStatus.Started;
-    roundInfo[gameId][roundNumber].entropy = _entropy;
   }
 
   /// @dev force complete the game
@@ -252,131 +258,86 @@ contract SurvivalGame is
   /// @dev buy players and give ownership to _to
   /// @param _size - size of the batch
   /// @param _to - address of the player's master
-  function buyBatch(uint256 _size, address _to) external onlyOpened nonReentrant returns (uint256[] memory _ids) {
+  function buy(uint256 _size, address _to) external onlyOpened nonReentrant returns (uint256 _remainingPlayerCount) {
     require(_size != 0, "SurvivalGame::buyBatch::size must be greater than zero");
-    require(_size <= maxBatchSize, "SurvivalGame::buyBatch::size must not exceed max batch size");
+    //require(_size <= maxBatchSize, "SurvivalGame::buyBatch::size must not exceed max batch size");
     uint256 totalPrice;
     uint256 totalLatteBurn;
     {
-      GameInfo memory game = gameInfo[gameId];
-      uint256 price = game.costPerTicket;
+      uint256 price = gameInfo[gameId].costPerTicket;
       totalPrice = price.mul(_size);
-      uint256 burnBps = game.burnBps;
-      totalLatteBurn = totalPrice.mul(burnBps).div(1e4);
+      totalLatteBurn = totalPrice.mul(gameInfo[gameId].burnBps).div(1e4);
     }
     latte.safeTransferFrom(msg.sender, address(this), totalPrice);
     latte.safeTransfer(DEAD_ADDR, totalLatteBurn);
-    _ids = new uint256[](_size);
-    for (uint256 i = 0; i < _size; ++i) {
-      _ids[i] = _buy(_to);
-    }
+    userInfo[gameId][0][_to].remainingPlayerCount.add(_size);
+    _remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount;
   }
 
-  /// @dev check if players are not eliminated
-  /// @param _ids - a list of player
-  function checkBatch(uint256[] calldata _ids) external onlyStarted nonReentrant returns (bool[] memory _canVotes) {
-    uint256 size = _ids.length;
-    require(size != 0, "SurvivalGame::checkBatch::no players to be checked");
-    require(size <= maxBatchSize, "SurvivalGame::checkBatch::size must not exceed max batch size");
-    _canVotes = new bool[](size);
-    for (uint256 i = 0; i < size; ++i) {
-      uint256 id = _ids[i];
-      _canVotes[i] = _check(id);
-    }
-  }
+  /// @dev check if there are players left
+  function check() external onlyStarted nonReentrant returns (uint256 _survivorCount) {
+    uint8 roundNumber = gameInfo[gameId].roundNumber;
+    uint8 lastRoundNumber = roundNumber.sub(1);
+    uint256 _remainingPlayerCount = userInfo[gameId][lastRoundNumber][msg.sender].remainingPlayerCount;
+    require(_remainingPlayerCount != 0, "SurvivalGame::checkBatch::no players to be checked");
+    //require(_remainingPlayerCount <= maxBatchSize, "SurvivalGame::checkBatch::players exceed max batch size");
 
-  /// @dev check if a player is not eliminated
-  /// @param _id - the player id
-  function check(uint256 _id) external onlyStarted nonReentrant returns (bool _canVote) {
-    _canVote = _check(_id);
+    RoundInfo memory _roundInfo = roundInfo[gameId][roundNumber];
+    uint256 entropy = _roundInfo.entropy;
+    require(entropy != 0, "SurvivalGame::_check::no entropy");
+    uint256 survivalBps = _roundInfo.survivalBps;
+    require(survivalBps != 0, "SurvivalGame::_check::no survival BPS");
+    {
+      _survivorCount = 0;
+      for (uint256 i = 0; i < _remainingPlayerCount; ++i) {
+        bytes memory data = abi.encodePacked(entropy, address(this), msg.sender, ++nonce);
+        // eliminated if hash value mod 100 more than the survive percent
+        bool survived = (uint256(keccak256(data)) % 1e2) > survivalBps.div(1e4);
+        if (survived) {
+          _survivorCount.add(1);
+        }
+      }
+      userInfo[gameId][roundNumber][msg.sender].remainingPlayerCount = _survivorCount;
+      userInfo[gameId][roundNumber][msg.sender].remainingVoteCount = _survivorCount;
+      roundInfo[gameId][roundNumber].survivorCount.add(_survivorCount);
+      userInfo[gameId][lastRoundNumber][msg.sender].remainingPlayerCount = 0;
+    }
   }
 
   function voteContinue() external onlyStarted nonReentrant {
-    uint256 voteCount = remainingVote[gameId][roundNumber][msg.sender];
+    uint8 roundNumber = gameInfo[gameId].roundNumber;
+    uint256 voteCount = userInfo[gameId][roundNumber][msg.sender].remainingVoteCount;
     require(voteCount > 0, "SurvivalGame::_vote::no remaining vote");
-    remainingVote[gameId][roundNumber][msg.sender] = 0;
+    userInfo[gameId][roundNumber][msg.sender].remainingVoteCount = 0;
     roundInfo[gameId][roundNumber].continueVoteCount.add(voteCount);
   }
 
   function voteStop() external onlyStarted nonReentrant {
-    uint256 voteCount = remainingVote[gameId][roundNumber][msg.sender];
+    uint8 roundNumber = gameInfo[gameId].roundNumber;
+    uint256 voteCount = userInfo[gameId][roundNumber][msg.sender].remainingVoteCount;
     require(voteCount > 0, "SurvivalGame::_vote::no remaining vote");
-    remainingVote[gameId][roundNumber][msg.sender] = 0;
+    userInfo[gameId][roundNumber][msg.sender].remainingVoteCount = 0;
     roundInfo[gameId][roundNumber].stopVoteCount.add(voteCount);
   }
 
-  function claimBatch(uint256[] calldata _ids, address _to) external nonReentrant {
-    uint256 totalReward = 0;
-    for (uint256 i = 0; i < _ids.length; ++i) {
-      uint256 _id = _ids[i];
-      totalReward.add(_playerReward(_id));
-    }
-    latte.safeTransfer(_to, totalReward);
-  }
-
-  function claim(uint256 _id, address _to) external nonReentrant {
-    latte.safeTransfer(_to, _playerReward(_id));
+  function claim(address _to) external nonReentrant onlyCompleted {
+    uint8 roundNumber = gameInfo[gameId].roundNumber;
+    UserInfo memory _userInfo = userInfo[gameId][roundNumber][msg.sender];
+    require(!_userInfo.claimed, "SurvivalGame::claim::rewards has been claimed");
+    uint256 _remainingPlayer = _userInfo.remainingPlayerCount;
+    require(_remainingPlayer > 0, "SurvivalGame::claim::no reward for losers");
+    uint256 pendingReward = gameInfo[gameId].finalPrizePerUser.mul(_remainingPlayer);
+    latte.safeTransfer(_to, pendingReward);
+    userInfo[gameId][roundNumber][msg.sender].claimed = true;
   }
 
   /// Internal functions
   function _complete() internal {
-    uint256 finalPrizeInLatte = prizePoolInLatte.mul(roundInfo[gameId][roundNumber].prizeDistribution).div(1e4);
-    gameInfo[gameId].finalPrizeInLatte = finalPrizeInLatte;
+    uint8 _roundNumber = gameInfo[gameId].roundNumber;
+    RoundInfo memory _roundInfo = roundInfo[gameId][_roundNumber];
+    uint256 finalPrizeInLatte = prizePoolInLatte.mul(_roundInfo.prizeDistribution).div(1e4);
+    uint256 survivorCount = _roundInfo.survivorCount;
+    gameInfo[gameId].finalPrizePerUser = finalPrizeInLatte.div(survivorCount);
     gameInfo[gameId].status = GameStatus.Completed;
-    prizePoolInLatte = prizePoolInLatte.sub(finalPrizeInLatte);
-  }
-
-  function _buy(address _to) internal returns (uint256 _id) {
-    _id = lastPlayerId.add(1);
-    playerMaster[_id] = _to;
-    playerGame[_id] = gameId;
-    for (uint8 i = 0; i < maxRound; ++i) {
-      playerStatus[_id][i] = PlayerStatus.Pending;
-    }
-
-    lastPlayerId = _id;
-    gameInfo[gameId].totalPlayer = gameInfo[gameId].totalPlayer.add(1);
-  }
-
-  function _check(uint256 _id) internal onlyMaster(_id) returns (bool _survived) {
-    if (roundNumber > 1) {
-      require(
-        playerStatus[_id][roundNumber.sub(1)] == PlayerStatus.Survived,
-        "SurvivalGame::_check::player has been eliminated"
-      );
-    }
-    require(playerStatus[_id][roundNumber] == PlayerStatus.Pending, "SurvivalGame::_check::player has been checked");
-    RoundInfo memory info = roundInfo[gameId][roundNumber];
-    uint256 entropy = info.entropy;
-    require(entropy != 0, "SurvivalGame::_check::no entropy");
-    uint256 survivalBps = info.survivalBps;
-    require(survivalBps != 0, "SurvivalGame::_check::no survival BPS");
-    bytes memory data = abi.encodePacked(entropy, address(this), msg.sender, _id);
-
-    // eliminated if hash value mod 100 more than the survive percent
-    _survived = (uint256(keccak256(data)) % 1e2) > survivalBps.div(1e4);
-    if (_survived) {
-      playerStatus[_id][roundNumber] = PlayerStatus.Survived;
-      remainingVote[gameId][roundNumber][msg.sender].add(1);
-    } else {
-      playerStatus[_id][roundNumber] = PlayerStatus.Dead;
-    }
-  }
-
-  function _playerReward(uint256 _id) internal onlyMaster(_id) returns (uint256 _pendingReward) {
-    uint256 _gameId = playerGame[_id];
-    GameInfo memory _gameInfo = gameInfo[_gameId];
-    require(_gameInfo.status == GameStatus.Completed, "SurvivalGame::claim::game is not completed");
-    require(
-      playerStatus[_gameId][_gameInfo.roundNumber] != PlayerStatus.Claimed,
-      "SurvivalGame::claim::player has claimed reward"
-    );
-    require(
-      playerStatus[_gameId][_gameInfo.roundNumber] == PlayerStatus.Survived,
-      "SurvivalGame::claim::player was eliminated"
-    );
-    RoundInfo memory _roundInfo = roundInfo[_gameId][_gameInfo.roundNumber];
-    _pendingReward = _gameInfo.finalPrizeInLatte.div(_roundInfo.survivorCount);
-    playerStatus[_gameId][_gameInfo.roundNumber] = PlayerStatus.Claimed;
   }
 }
