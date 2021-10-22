@@ -15,7 +15,7 @@
     "test:case": "mocha --timeout 500000 --require hardhat/register --file tests/**/* --extension ts -g",
     "prepublishOnly": "yarn compile && yarn build"
   },
-  "version": "0.1.0",
+  "version": "1.0.0-rc.0",
   "main": "index.js",
   "license": "GPL-3.0",
   "devDependencies": {
