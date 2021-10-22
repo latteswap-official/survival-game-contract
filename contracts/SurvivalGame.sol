@@ -101,7 +101,7 @@ contract SurvivalGame is
   event SetGameStatus(uint256 gameId, string status);
   event SetTotalPlayer(uint256 gameId, uint256 totalPlayer);
   event SetRoundNumber(uint256 gameId, uint8 roundNumber);
-
+  event SetFinalPrizeInLatte(uint256 gameId, uint256 prize);
   event CreateRound(uint256 gameId, uint8 roundNumber, uint256 prizeDistribution, uint256 survivalBps);
   event RequestRandomNumber(uint256 gameId, uint8 roundNumber, bytes32 requestId);
   event SetEntropy(uint256 gameId, uint8 roundNumber, uint256 entropy);
@@ -355,6 +355,7 @@ contract SurvivalGame is
     gameInfo[gameId].status = GameStatus.Completed;
     prizePoolInLatte = prizePoolInLatte.sub(finalPrizeInLatte);
 
+    emit SetFinalPrizeInLatte(gameId, finalPrizeInLatte);
     emit SetGameStatus(gameId, "Completed");
   }
 
@@ -399,14 +400,14 @@ contract SurvivalGame is
       playerStatus[_id][roundNumber] = PlayerStatus.Survived;
       remainingVote[gameId][roundNumber][msg.sender].add(1);
       roundInfo[gameId][roundNumber].survivorCount.add(1);
-
+      emit SetPlayerStatus(_id, roundNumber, "Survived");
     } else {
       playerStatus[_id][roundNumber] = PlayerStatus.Dead;
+      emit SetPlayerStatus(_id, roundNumber, "Dead");
     }
 
     emit SetRoundSurvivor(gameId, roundNumber, roundInfo[gameId][roundNumber].survivorCount);
     emit SetRemainingVote(gameId, roundNumber, msg.sender, remainingVote[gameId][roundNumber][msg.sender]);
-    emit SetPlayerStatus(_id, roundNumber, "Dead");
   }
 
   function _playerReward(uint256 _id) internal onlyMaster(_id) returns (uint256 _pendingReward) {
@@ -414,15 +415,17 @@ contract SurvivalGame is
     GameInfo memory _gameInfo = gameInfo[_gameId];
     require(_gameInfo.status == GameStatus.Completed, "SurvivalGame::claim::game is not completed");
     require(
-      playerStatus[_gameId][_gameInfo.roundNumber] != PlayerStatus.Claimed,
+      playerStatus[_id][_gameInfo.roundNumber] != PlayerStatus.Claimed,
       "SurvivalGame::claim::player has claimed reward"
     );
     require(
-      playerStatus[_gameId][_gameInfo.roundNumber] == PlayerStatus.Survived,
+      playerStatus[_id][_gameInfo.roundNumber] == PlayerStatus.Survived,
       "SurvivalGame::claim::player was eliminated"
     );
     RoundInfo memory _roundInfo = roundInfo[_gameId][_gameInfo.roundNumber];
     _pendingReward = _gameInfo.finalPrizeInLatte.div(_roundInfo.survivorCount);
-    playerStatus[_gameId][_gameInfo.roundNumber] = PlayerStatus.Claimed;
+    playerStatus[_id][_gameInfo.roundNumber] = PlayerStatus.Claimed;
+
+    emit SetPlayerStatus(_id, roundNumber, "Claimed");
   }
 }
