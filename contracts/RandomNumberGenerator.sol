@@ -49,12 +49,9 @@ contract RandomNumberGenerator is IRandomNumberGenerator, VRFConsumerBase, Ownab
    */
   function randomNumber() public override onlyConsumer returns (bytes32 requestId) {
     require(keyHash != bytes32(0), "RandomNumberGenerator::getRandomNumber::Must have valid key hash");
-    require(
-      LINK.balanceOf(address(this)) >= fee,
-      "RandomNumberGenerator::getRandomNumber::Not enough LINK - fill contract with faucet"
-    );
+    require(LINK.balanceOf(address(this)) >= fee, "RandomNumberGenerator::getRandomNumber::Not enough LINK");
+    requestId = requestRandomness(keyHash, fee);
     requesters[requestId] = msg.sender;
-    return requestRandomness(keyHash, fee);
   }
 
   /**
