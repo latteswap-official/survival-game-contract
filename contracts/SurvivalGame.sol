@@ -14,11 +14,17 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-
 import "./math/SafeMath8.sol";
 import "./math/SafeMath16.sol";
+import "./interfaces/IRandomNumberGenerator.sol";
+import "./interfaces/IRandomNumberConsumer.sol";
 
-contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessControlUpgradeable {
+contract SurvivalGame is
+  IRandomNumberConsumer,
+  OwnableUpgradeable,
+  ReentrancyGuardUpgradeable,
+  AccessControlUpgradeable
+{
   // Libraries
   using SafeMath for uint256;
   using SafeMath8 for uint8;
@@ -28,6 +34,9 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   // State variable
   // Instance of LATTE token (collateral currency)
   IERC20 internal latte;
+  // Instance of the random number generator
+  IRandomNumberGenerator internal entropyGenerator;
+
   uint256 internal gameId;
   uint256 internal lastPlayerId;
   uint256 internal prizePoolInLatte;
@@ -67,6 +76,8 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     uint256 stopVoteCount;
     uint256 continueVoteCount;
     uint256 survivorCount;
+    // Request ID for random number
+    bytes32 requestId;
     uint256 entropy;
   }
 
@@ -88,11 +99,10 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
    * @notice Constructor
    * @param _latte: LATTE token contract
    */
-  function initialize(address _latte) external initializer {
+  function initialize(address _latte, address _entropyGenerator) external initializer {
     OwnableUpgradeable.__Ownable_init();
     ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
     AccessControlUpgradeable.__AccessControl_init();
-
     latte = IERC20(_latte);
     gameId = 0;
     roundNumber = 0;
@@ -100,6 +110,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     _setupRole(OPERATOR_ROLE, _msgSender());
+    entropyGenerator = IRandomNumberGenerator(_entropyGenerator);
   }
 
   /// Modifier
@@ -112,6 +123,12 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
   /// @dev only the master of the player can continue an execution
   modifier onlyMaster(uint256 _id) {
     require(playerMaster[_id] == msg.sender, "SurvialGame::onlyMaster::only player's master");
+    _;
+  }
+
+  /// @dev only the entropy generator can continue an execution
+  modifier onlyEntropyGenerator() {
+    require(msg.sender == address(entropyGenerator), "SurvialGame::onlyEntropyGenerator::only after game completed");
     _;
   }
 
@@ -170,13 +187,15 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
       burnBps: burnBps
     });
     gameInfo[gameId] = newGameInfo;
-    for (uint256 i = 0; i < maxRound; ++i) {
+    // Warning: Round index start from 1 not 0
+    for (uint256 i = 1; i <= maxRound; ++i) {
       RoundInfo memory initRound = RoundInfo({
-        prizeDistribution: prizeDistributions[i],
-        survivalBps: survivalsBps[i],
+        prizeDistribution: prizeDistributions[i - 1],
+        survivalBps: survivalsBps[i - 1],
         stopVoteCount: 0,
         continueVoteCount: 0,
         survivorCount: 0,
+        requestId: bytes32(0),
         entropy: 0
       });
       roundInfo[gameId][i] = initRound;
@@ -185,13 +204,11 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
 
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {
-    roundNumber = 1;
-    gameInfo[gameId].roundNumber = 1;
-    // TODO: call random from chainlink
+    _requestRandomNumber();
   }
 
   /// @dev sum up each round and either continue next round or complete the game
-  function proceed() external onlyOper onlyStarted {
+  function processing() external onlyOper onlyStarted {
     if (
       roundInfo[gameId][roundNumber].stopVoteCount > roundInfo[gameId][roundNumber].continueVoteCount ||
       roundNumber == maxRound ||
@@ -199,10 +216,27 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     ) {
       _complete();
     } else {
-      // TODO: call random from chainlink
-      roundNumber = roundNumber.add(1);
-      gameInfo[gameId].roundNumber = roundNumber;
+      _requestRandomNumber();
     }
+  }
+
+  function _requestRandomNumber() internal {
+    bytes32 requestId = roundInfo[gameId][roundNumber + 1].requestId;
+    require(requestId == bytes32(0), "SurvivalGame::_requestRandomNumber::random numnber has been requested");
+    roundInfo[gameId][roundNumber + 1].requestId = entropyGenerator.randomNumber();
+  }
+
+  function consumeRandomNumber(bytes32 _requestId, uint256 _randomNumber) external override onlyEntropyGenerator {
+    bytes32 requestId = roundInfo[gameId][roundNumber + 1].requestId;
+    require(requestId == _requestId, "SurvivalGame::consumeRandomNumber:: invalid requestId");
+    _proceed(_randomNumber);
+  }
+
+  function _proceed(uint256 _entropy) internal {
+    roundNumber = roundNumber.add(1);
+    gameInfo[gameId].roundNumber = roundNumber;
+    gameInfo[gameId].status = GameStatus.Started;
+    roundInfo[gameId][roundNumber].entropy = _entropy;
   }
 
   /// @dev force complete the game
@@ -229,7 +263,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     latte.safeTransferFrom(msg.sender, address(this), totalPrice);
     latte.safeTransfer(DEAD_ADDR, totalLatteBurn);
     _ids = new uint256[](_size);
-    for (uint256 i = 0; i < _size; i++) {
+    for (uint256 i = 0; i < _size; ++i) {
       _ids[i] = _buy(_to);
     }
   }
@@ -241,7 +275,7 @@ contract SurvivalGame is OwnableUpgradeable, ReentrancyGuardUpgradeable, AccessC
     require(size != 0, "SurvivalGame::checkBatch::no players to be checked");
     require(size <= maxBatchSize, "SurvivalGame::checkBatch::size must not exceed max batch size");
     _canVotes = new bool[](size);
-    for (uint256 i = 0; i < size; i++) {
+    for (uint256 i = 0; i < size; ++i) {
       uint256 id = _ids[i];
       _canVotes[i] = _check(id);
     }
