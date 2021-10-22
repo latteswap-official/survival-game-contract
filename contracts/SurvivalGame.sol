@@ -252,7 +252,7 @@ contract SurvivalGame is
   /// @dev buy players and give ownership to _to
   /// @param _size - size of the batch
   /// @param _to - address of the player's master
-  function buyBatch(uint256 _size, address _to) external onlyOpened returns (uint256[] memory _ids) {
+  function buyBatch(uint256 _size, address _to) external onlyOpened nonReentrant returns (uint256[] memory _ids) {
     require(_size != 0, "SurvivalGame::buyBatch::size must be greater than zero");
     require(_size <= maxBatchSize, "SurvivalGame::buyBatch::size must not exceed max batch size");
     uint256 totalPrice;
@@ -274,7 +274,7 @@ contract SurvivalGame is
 
   /// @dev check if players are not eliminated
   /// @param _ids - a list of player
-  function checkBatch(uint256[] calldata _ids) external onlyStarted returns (bool[] memory _canVotes) {
+  function checkBatch(uint256[] calldata _ids) external onlyStarted nonReentrant returns (bool[] memory _canVotes) {
     uint256 size = _ids.length;
     require(size != 0, "SurvivalGame::checkBatch::no players to be checked");
     require(size <= maxBatchSize, "SurvivalGame::checkBatch::size must not exceed max batch size");
@@ -287,25 +287,25 @@ contract SurvivalGame is
 
   /// @dev check if a player is not eliminated
   /// @param _id - the player id
-  function check(uint256 _id) external onlyStarted returns (bool _canVote) {
+  function check(uint256 _id) external onlyStarted nonReentrant returns (bool _canVote) {
     _canVote = _check(_id);
   }
 
-  function voteContinue() external onlyStarted {
+  function voteContinue() external onlyStarted nonReentrant {
     uint256 voteCount = remainingVote[gameId][roundNumber][msg.sender];
     require(voteCount > 0, "SurvivalGame::_vote::no remaining vote");
     remainingVote[gameId][roundNumber][msg.sender] = 0;
     roundInfo[gameId][roundNumber].continueVoteCount.add(voteCount);
   }
 
-  function voteStop() external onlyStarted {
+  function voteStop() external onlyStarted nonReentrant {
     uint256 voteCount = remainingVote[gameId][roundNumber][msg.sender];
     require(voteCount > 0, "SurvivalGame::_vote::no remaining vote");
     remainingVote[gameId][roundNumber][msg.sender] = 0;
     roundInfo[gameId][roundNumber].stopVoteCount.add(voteCount);
   }
 
-  function claimBatch(uint256[] calldata _ids, address _to) external {
+  function claimBatch(uint256[] calldata _ids, address _to) external nonReentrant {
     uint256 totalReward = 0;
     for (uint256 i = 0; i < _ids.length; ++i) {
       uint256 _id = _ids[i];
@@ -314,7 +314,7 @@ contract SurvivalGame is
     latte.safeTransfer(_to, totalReward);
   }
 
-  function claim(uint256 _id, address _to) external {
+  function claim(uint256 _id, address _to) external nonReentrant {
     latte.safeTransfer(_to, _playerReward(_id));
   }
 
