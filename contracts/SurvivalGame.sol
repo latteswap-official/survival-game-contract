@@ -50,6 +50,7 @@ contract SurvivalGame is
   // Represents the status of the game
   enum GameStatus {
     Opened, // The game has been opened for the registration
+    Processing, // The game is preparing for the next state
     Started, // The game has been started
     Completed // The game has been completed and might have the winners
   }
@@ -204,6 +205,7 @@ contract SurvivalGame is
 
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {
+    gameInfo[gameId].status = GameStatus.Processing;
     _requestRandomNumber();
   }
 
@@ -216,6 +218,7 @@ contract SurvivalGame is
     ) {
       _complete();
     } else {
+      gameInfo[gameId].status = GameStatus.Processing;
       _requestRandomNumber();
     }
   }
