@@ -96,6 +96,20 @@ contract SurvivalGame is
   // game id => round number => master address => remaining votes
   mapping(uint256 => mapping(uint8 => mapping(address => uint256))) public remainingVote;
 
+  event CreateGame(uint256 gameId, uint256 ticketPrice, uint256 burnBps);
+  event SetGameStatus(uint256 gameId, string status);
+  event SetTotalPlayer(uint256 gameId, uint256 totalPlayer);
+  event SetRoundNumber(uint256 gameId, uint8 roundNumber);
+
+  event CreateRound(uint256 gameId, uint8 roundNumber, uint256 prizeDistribution, uint256 survivalBps);
+  event RequestRandomNumber(uint256 gameId, uint8 roundNumber, bytes32 requestId);
+  event SetEntropy(uint256 gameId, uint8 roundNumber, uint256 entropy);
+  
+  event Buy(uint256 gameId, address playerMaster, uint256 playerId);
+  event SetPlayerStatus(uint256 playerId, uint8 roundNumber, string status);
+  event SetRemainingVote(uint256 gameId, uint8 roundNumber, address playerMaster, uint256 amount);
+  event SetRoundSurvivor(uint256 gameId, uint8 roundNumber, uint256 survivorCount);
+
   /**
    * @notice Constructor
    * @param _latte: LATTE token contract
@@ -188,8 +202,12 @@ contract SurvivalGame is
       burnBps: burnBps
     });
     gameInfo[gameId] = newGameInfo;
+
+    emit CreateGame(gameId, ticketPrice, burnBps);
+    emit SetGameStatus(gameId, "Opened");
+
     // Warning: Round index start from 1 not 0
-    for (uint256 i = 1; i <= maxRound; ++i) {
+    for (uint8 i = 1; i <= maxRound; ++i) {
       RoundInfo memory initRound = RoundInfo({
         prizeDistribution: prizeDistributions[i - 1],
         survivalBps: survivalsBps[i - 1],
@@ -200,6 +218,8 @@ contract SurvivalGame is
         entropy: 0
       });
       roundInfo[gameId][i] = initRound;
+
+      emit CreateRound(gameId, i, prizeDistributions[i - 1], survivalsBps[i - 1]);
     }
   }
 
@@ -207,6 +227,8 @@ contract SurvivalGame is
   function start() external onlyOper onlyOpened {
     gameInfo[gameId].status = GameStatus.Processing;
     _requestRandomNumber();
+
+    emit SetGameStatus(gameId, "Processing");
   }
 
   /// @dev sum up each round and either continue next round or complete the game
@@ -220,6 +242,8 @@ contract SurvivalGame is
     } else {
       gameInfo[gameId].status = GameStatus.Processing;
       _requestRandomNumber();
+
+      emit SetGameStatus(gameId, "Processing");
     }
   }
 
@@ -227,6 +251,8 @@ contract SurvivalGame is
     bytes32 requestId = roundInfo[gameId][roundNumber + 1].requestId;
     require(requestId == bytes32(0), "SurvivalGame::_requestRandomNumber::random numnber has been requested");
     roundInfo[gameId][roundNumber + 1].requestId = entropyGenerator.randomNumber();
+
+    emit RequestRandomNumber(gameId, roundNumber, roundInfo[gameId][roundNumber + 1].requestId);
   }
 
   function consumeRandomNumber(bytes32 _requestId, uint256 _randomNumber) external override onlyEntropyGenerator {
@@ -240,6 +266,10 @@ contract SurvivalGame is
     gameInfo[gameId].roundNumber = roundNumber;
     gameInfo[gameId].status = GameStatus.Started;
     roundInfo[gameId][roundNumber].entropy = _entropy;
+
+    emit SetGameStatus(gameId, "Started");
+    emit SetRoundNumber(gameId, gameInfo[gameId].roundNumber);
+    emit SetEntropy(gameId, roundNumber, _entropy);
   }
 
   /// @dev force complete the game
@@ -312,18 +342,28 @@ contract SurvivalGame is
     gameInfo[gameId].finalPrizeInLatte = finalPrizeInLatte;
     gameInfo[gameId].status = GameStatus.Completed;
     prizePoolInLatte = prizePoolInLatte.sub(finalPrizeInLatte);
+
+    emit SetGameStatus(gameId, "Completed");
   }
 
   function _buy(address _to) internal returns (uint256 _id) {
     _id = lastPlayerId.add(1);
     playerMaster[_id] = _to;
     playerGame[_id] = gameId;
+
+    emit Buy(gameId, playerMaster[_id], _id);
+
     for (uint8 i = 0; i < maxRound; ++i) {
       playerStatus[_id][i] = PlayerStatus.Pending;
+
+      emit SetPlayerStatus(_id, i, "Pending");
     }
 
     lastPlayerId = _id;
     gameInfo[gameId].totalPlayer = gameInfo[gameId].totalPlayer.add(1);
+
+
+    emit SetTotalPlayer(gameId, gameInfo[gameId].totalPlayer);
   }
 
   function _check(uint256 _id) internal onlyMaster(_id) returns (bool _survived) {
@@ -346,9 +386,15 @@ contract SurvivalGame is
     if (_survived) {
       playerStatus[_id][roundNumber] = PlayerStatus.Survived;
       remainingVote[gameId][roundNumber][msg.sender].add(1);
+      roundInfo[gameId][roundNumber].survivorCount.add(1);
+
     } else {
       playerStatus[_id][roundNumber] = PlayerStatus.Dead;
     }
+
+    emit SetRoundSurvivor(gameId, roundNumber, roundInfo[gameId][roundNumber].survivorCount);
+    emit SetRemainingVote(gameId, roundNumber, msg.sender, remainingVote[gameId][roundNumber][msg.sender]);
+    emit SetPlayerStatus(_id, roundNumber, "Dead");
   }
 
   /// @dev mark player as claimed and return claim amount
