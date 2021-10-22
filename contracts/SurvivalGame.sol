@@ -56,9 +56,10 @@ contract SurvivalGame is
   }
 
   enum PlayerStatus {
-    Pending, // The player have to check was killed
+    Pending, // The player has to check was killed
     Dead, // The player was killed
-    Survived // The player survived the round
+    Survived, // The player survived the round
+    Claimed // The player has claimed reward
   }
 
   // All the needed info around the game
@@ -304,7 +305,18 @@ contract SurvivalGame is
     roundInfo[gameId][roundNumber].stopVoteCount.add(voteCount);
   }
 
-  function claimBatch(uint256[] calldata _ids, address _to) external {}
+  function claimBatch(uint256[] calldata _ids, address _to) external {
+    uint256 totalReward = 0;
+    for (uint256 i = 0; i < _ids.length; ++i) {
+      uint256 _id = _ids[i];
+      totalReward.add(_playerReward(_id));
+    }
+    latte.safeTransfer(_to, totalReward);
+  }
+
+  function claim(uint256 _id, address _to) external {
+    latte.safeTransfer(_to, _playerReward(_id));
+  }
 
   /// Internal functions
   function _complete() internal {
@@ -351,6 +363,20 @@ contract SurvivalGame is
     }
   }
 
-  /// @dev mark player as claimed and return claim amount
-  function _claim(uint256 _id) internal onlyMaster(_id) returns (bool) {}
+  function _playerReward(uint256 _id) internal onlyMaster(_id) returns (uint256 _pendingReward) {
+    uint256 _gameId = playerGame[_id];
+    GameInfo memory _gameInfo = gameInfo[_gameId];
+    require(_gameInfo.status == GameStatus.Completed, "SurvivalGame::claim::game is not completed");
+    require(
+      playerStatus[_gameId][_gameInfo.roundNumber] != PlayerStatus.Claimed,
+      "SurvivalGame::claim::player has claimed reward"
+    );
+    require(
+      playerStatus[_gameId][_gameInfo.roundNumber] == PlayerStatus.Survived,
+      "SurvivalGame::claim::player was eliminated"
+    );
+    RoundInfo memory _roundInfo = roundInfo[_gameId][_gameInfo.roundNumber];
+    _pendingReward = _gameInfo.finalPrizeInLatte.div(_roundInfo.survivorCount);
+    playerStatus[_gameId][_gameInfo.roundNumber] = PlayerStatus.Claimed;
+  }
 }
