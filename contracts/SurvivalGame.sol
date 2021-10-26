@@ -37,9 +37,9 @@ contract SurvivalGame is
   // Instance of the random number generator
   IRandomNumberGenerator internal entropyGenerator;
 
-  uint256 internal gameId = 0;
+  uint256 public gameId = 0;
   uint256 internal nonce = 0;
-  uint256 internal prizePoolInLatte = 0;
+  uint256 public prizePoolInLatte = 0;
 
   // Constants
   uint8 public constant maxRound = 6;
@@ -60,7 +60,7 @@ contract SurvivalGame is
   struct GameInfo {
     GameStatus status;
     uint8 roundNumber;
-    uint256 finalPrizePerUser;
+    uint256 finalPrizePerPlayer;
     uint256 costPerTicket;
     uint256 burnBps;
     uint256 totalPlayer;
@@ -147,22 +147,13 @@ contract SurvivalGame is
     _;
   }
 
-  /// @dev only before game opened
+  /// @dev only after game completed
   modifier onlyCompleted() {
-    require(gameInfo[gameId].status == GameStatus.Completed, "SurvialGame::onlyCompleted::only before game opened");
+    require(gameInfo[gameId].status == GameStatus.Completed, "SurvialGame::onlyCompleted::only after game completed");
     _;
   }
 
   /// Getter functions
-  function currentGame() external view returns (uint256 _gameId, uint8 _roundNumber) {
-    _gameId = gameId;
-    _roundNumber = gameInfo[gameId].roundNumber;
-  }
-
-  function currentPrizePoolInLatte() external view returns (uint256 _amount) {
-    _amount = prizePoolInLatte;
-  }
-
   function lastRoundSurvivors() external view onlyStarted returns (uint256 _amount) {
     GameInfo memory _gameInfo = gameInfo[gameId];
     if (_gameInfo.roundNumber == 1) {
@@ -186,7 +177,7 @@ contract SurvivalGame is
     gameInfo[gameId] = GameInfo({
       status: GameStatus.Opened,
       roundNumber: 0,
-      finalPrizePerUser: 0,
+      finalPrizePerPlayer: 0,
       totalPlayer: 0,
       costPerTicket: _costPerTicket,
       burnBps: _burnBps
@@ -238,8 +229,10 @@ contract SurvivalGame is
   function consumeRandomNumber(bytes32 _requestId, uint256 _randomNumber) external override onlyEntropyGenerator {
     uint8 nextRoundNumber = gameInfo[gameId].roundNumber.add(1);
     bytes32 requestId = roundInfo[gameId][nextRoundNumber].requestId;
-    require(requestId == _requestId, "SurvivalGame::consumeRandomNumber:: invalid requestId");
-    _proceed(_randomNumber);
+    // Do not revert transaction when requestId is incorrect to avoid VRF routine mulfunction
+    if(requestId == _requestId){
+      _proceed(_randomNumber);
+    }
   }
 
   function _proceed(uint256 _entropy) internal {
@@ -270,7 +263,7 @@ contract SurvivalGame is
     }
     latte.safeTransferFrom(msg.sender, address(this), totalPrice);
     latte.safeTransfer(DEAD_ADDR, totalLatteBurn);
-    userInfo[gameId][0][_to].remainingPlayerCount.add(_size);
+    userInfo[gameId][0][_to].remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount.add(_size);
     _remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount;
   }
 
@@ -292,14 +285,14 @@ contract SurvivalGame is
       for (uint256 i = 0; i < _remainingPlayerCount; ++i) {
         bytes memory data = abi.encodePacked(entropy, address(this), msg.sender, ++nonce);
         // eliminated if hash value mod 100 more than the survive percent
-        bool survived = (uint256(keccak256(data)) % 1e2) > survivalBps.div(1e4);
+        bool survived = (uint256(keccak256(data)) % 1e2).mul(1e2) > survivalBps;
         if (survived) {
-          _survivorCount.add(1);
+          _survivorCount++;
         }
       }
       userInfo[gameId][roundNumber][msg.sender].remainingPlayerCount = _survivorCount;
       userInfo[gameId][roundNumber][msg.sender].remainingVoteCount = _survivorCount;
-      roundInfo[gameId][roundNumber].survivorCount.add(_survivorCount);
+      roundInfo[gameId][roundNumber].survivorCount = roundInfo[gameId][roundNumber].survivorCount.add(_survivorCount);
       userInfo[gameId][lastRoundNumber][msg.sender].remainingPlayerCount = 0;
     }
   }
@@ -326,7 +319,7 @@ contract SurvivalGame is
     require(!_userInfo.claimed, "SurvivalGame::claim::rewards has been claimed");
     uint256 _remainingPlayer = _userInfo.remainingPlayerCount;
     require(_remainingPlayer > 0, "SurvivalGame::claim::no reward for losers");
-    uint256 pendingReward = gameInfo[gameId].finalPrizePerUser.mul(_remainingPlayer);
+    uint256 pendingReward = gameInfo[gameId].finalPrizePerPlayer.mul(_remainingPlayer);
     latte.safeTransfer(_to, pendingReward);
     userInfo[gameId][roundNumber][msg.sender].claimed = true;
   }
@@ -337,7 +330,7 @@ contract SurvivalGame is
     RoundInfo memory _roundInfo = roundInfo[gameId][_roundNumber];
     uint256 finalPrizeInLatte = prizePoolInLatte.mul(_roundInfo.prizeDistribution).div(1e4);
     uint256 survivorCount = _roundInfo.survivorCount;
-    gameInfo[gameId].finalPrizePerUser = finalPrizeInLatte.div(survivorCount);
+    gameInfo[gameId].finalPrizePerPlayer = finalPrizeInLatte.div(survivorCount);
     gameInfo[gameId].status = GameStatus.Completed;
   }
 }
