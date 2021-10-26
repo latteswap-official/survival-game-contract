@@ -36,10 +36,13 @@ contract SurvivalGame is
   IERC20 public latte;
   // Instance of the random number generator
   IRandomNumberGenerator public entropyGenerator;
+  // Minimum required blocks before operator can execute function again
+  uint256 public operatorCooldown;
 
   uint256 public gameId = 0;
   uint256 internal nonce = 0;
   uint256 public prizePoolInLatte = 0;
+  uint256 public lastUpdatedBlock = 0;
 
   // Constants
   uint8 public constant MAX_ROUND = 6;
@@ -99,7 +102,7 @@ contract SurvivalGame is
    * @notice Constructor
    * @param _latte: LATTE token contract
    */
-  function initialize(address _latte, address _entropyGenerator) external initializer {
+  function initialize(address _latte, address _entropyGenerator, uint256 _operatorCooldown) external initializer {
     // init functions
     OwnableUpgradeable.__Ownable_init();
     ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
@@ -107,6 +110,7 @@ contract SurvivalGame is
 
     latte = IERC20(_latte);
     entropyGenerator = IRandomNumberGenerator(_entropyGenerator);
+    operatorCooldown = _operatorCooldown;
 
     // create and assign default roles
     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
@@ -117,6 +121,7 @@ contract SurvivalGame is
   /// @dev only the one having a OPERATOR_ROLE can continue an execution
   modifier onlyOper() {
     require(hasRole(OPERATOR_ROLE, _msgSender()), "SurvialGame::onlyOper::only OPERATOR role");
+    require(uint256(block.timestamp) - lastUpdatedBlock >= operatorCooldown, "SurvivalGame::onlyOper::OPERATOR should not proceed the game consecutively");
     _;
   }
 
@@ -196,12 +201,14 @@ contract SurvivalGame is
       });
       roundInfo[gameId][i] = _roundInfo;
     }
+    lastUpdatedBlock = block.number;
   }
 
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {
     gameInfo[gameId].status = GameStatus.Processing;
     _requestRandomNumber();
+    lastUpdatedBlock = block.number;
   }
 
   /// @dev sum up each round and either continue next round or complete the game
@@ -324,6 +331,7 @@ contract SurvivalGame is
     roundInfo[gameId][_nextRoundNumber].entropy = _entropy;
     gameInfo[gameId].roundNumber = _nextRoundNumber;
     gameInfo[gameId].status = GameStatus.Started;
+    lastUpdatedBlock = block.number;
   }
 
   function _complete() internal {
@@ -333,5 +341,6 @@ contract SurvivalGame is
     uint256 _survivorCount = _roundInfo.survivorCount;
     gameInfo[gameId].finalPrizePerPlayer = _finalPrizeInLatte.div(_survivorCount);
     gameInfo[gameId].status = GameStatus.Completed;
+    lastUpdatedBlock = block.number;
   }
 }
