@@ -33,9 +33,9 @@ contract SurvivalGame is
 
   // State variable
   // Instance of LATTE token (collateral currency)
-  IERC20 internal latte;
+  IERC20 public latte;
   // Instance of the random number generator
-  IRandomNumberGenerator internal entropyGenerator;
+  IRandomNumberGenerator public entropyGenerator;
 
   uint256 public gameId = 0;
   uint256 internal nonce = 0;
@@ -249,6 +249,7 @@ contract SurvivalGame is
     }
     latte.safeTransferFrom(msg.sender, address(this), _totalPrice);
     latte.safeTransfer(DEAD_ADDR, _totalLatteBurn);
+    prizePoolInLatte = prizePoolInLatte.add(_totalPrice).sub(_totalLatteBurn);
     userInfo[gameId][0][_to].remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount.add(_size);
     _remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount;
   }
