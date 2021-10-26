@@ -98,18 +98,19 @@ contract SurvivalGame is
   // gameId => roundNumber => userAddress => userInfo
   mapping(uint256 => mapping(uint8 => mapping(address => UserInfo))) public userInfo;
 
-  event CreateGame(uint256 gameId, uint256 ticketPrice, uint256 burnBps);
-  event SetGameStatus(uint256 gameId, string status);
-  event SetTotalPlayer(uint256 gameId, uint256 totalPlayer);
-  event SetRoundNumber(uint256 gameId, uint8 roundNumber);
-  event SetFinalPrizePerPlayer(uint256 gameId, uint256 prize);
-  event CreateRound(uint256 gameId, uint8 roundNumber, uint256 prizeDistribution, uint256 survivalBps);
-  event RequestRandomNumber(uint256 gameId, uint8 roundNumber, bytes32 requestId);
-  event SetEntropy(uint256 gameId, uint8 roundNumber, uint256 entropy);
+  event LogCreateGame(uint256 gameId, uint256 costPerTicket, uint256 burnBps);
+  event LogSetGameStatus(uint256 gameId, string status);
+  event LogSetTotalPlayer(uint256 gameId, uint256 totalPlayer);
+  event LogSetRoundNumber(uint256 gameId, uint8 roundNumber);
+  event LogSetFinalPrizePerPlayer(uint256 gameId, uint256 prize);
+  event LogCreateRound(uint256 gameId, uint8 roundNumber, uint256 prizeDistribution, uint256 survivalBps);
+  event LogRequestRandomNumber(uint256 gameId, uint8 roundNumber, bytes32 requestId);
+  event LogSetEntropy(uint256 gameId, uint8 roundNumber, uint256 entropy);
   
-  event Buy(uint256 gameId, address to, uint256 size);
-  event SetRemainingVote(uint256 gameId, uint8 roundNumber, address playerMaster, uint256 amount);
-  event SetRoundSurvivor(uint256 gameId, uint8 roundNumber, uint256 survivorCount);
+  event LogBuyPlayer(uint256 gameId, address to, uint256 size);
+  event LogSetRemainingVoteCount(uint256 gameId, uint8 roundNumber, address playerMaster, uint256 remainingVoteCount);
+  event LogCurrentVoteCount(uint256 gameId, uint8 roundNumber, uint256 voteContinueCount, uint256 voteStopCount);
+  event LogSetRoundSurvivorCount(uint256 gameId, uint8 roundNumber, uint256 survivorCount);
 
   /**
    * @notice Constructor
@@ -201,8 +202,8 @@ contract SurvivalGame is
       burnBps: _burnBps
     });
 
-    emit CreateGame(gameId, _costPerTicket, _burnBps);
-    emit SetGameStatus(gameId, "Opened");
+    emit LogCreateGame(gameId, _costPerTicket, _burnBps);
+    emit LogSetGameStatus(gameId, "Opened");
 
     // Warning: Round index start from 1 not 0
     for (uint8 i = 1; i <= MAX_ROUND; ++i) {
@@ -217,7 +218,7 @@ contract SurvivalGame is
       });
 
       roundInfo[gameId][i] = _roundInfo;
-      emit CreateRound(gameId, i, _prizeDistributions[i - 1], _survivalsBps[i - 1]);
+      emit LogCreateRound(gameId, i, _prizeDistributions[i - 1], _survivalsBps[i - 1]);
     }
     lastUpdatedBlock = block.number;
   }
@@ -225,9 +226,9 @@ contract SurvivalGame is
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {
     gameInfo[gameId].status = GameStatus.Processing;
-    _requestRandomNumber();
+    _LogRequestRandomNumber();
     lastUpdatedBlock = block.number;
-    emit SetGameStatus(gameId, "Processing");
+    emit LogSetGameStatus(gameId, "Processing");
   }
 
   /// @dev sum up each round and either continue next round or complete the game
@@ -241,9 +242,9 @@ contract SurvivalGame is
       _complete();
     } else {
       gameInfo[gameId].status = GameStatus.Processing;
-      _requestRandomNumber();
+      _LogRequestRandomNumber();
 
-      emit SetGameStatus(gameId, "Processing");
+      emit LogSetGameStatus(gameId, "Processing");
     }
   }
 
@@ -266,8 +267,8 @@ contract SurvivalGame is
   /// @param _size - size of the batch
   /// @param _to - address of the player's master
   function buy(uint256 _size, address _to) external onlyOpened nonReentrant returns (uint256 _remainingPlayerCount) {
-    require(_size != 0, "SurvivalGame::buyBatch::size must be greater than zero");
-    //require(_size <= MAX_BATCH_SIZE, "SurvivalGame::buyBatch::size must not exceed max batch size");
+    require(_size != 0, "SurvivalGame::buy::size must be greater than zero");
+    //require(_size <= MAX_BATCH_SIZE, "SurvivalGame::buy::size must not exceed max batch size");
     uint256 _totalPrice;
     uint256 _totalLatteBurn;
     {
@@ -281,8 +282,8 @@ contract SurvivalGame is
     userInfo[gameId][0][_to].remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount.add(_size);
     _remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount;
 
-    emit Buy(gameId, _to, _size);
-    emit SetTotalPlayer(gameId, gameInfo[gameId].totalPlayer);
+    emit LogBuyPlayer(gameId, _to, _size);
+    emit LogSetTotalPlayer(gameId, gameInfo[gameId].totalPlayer);
   }
 
   /// @dev check if there are players left
@@ -313,8 +314,8 @@ contract SurvivalGame is
       roundInfo[gameId][_roundNumber].survivorCount = roundInfo[gameId][_roundNumber].survivorCount.add(_survivorCount);
       userInfo[gameId][_lastRoundNumber][msg.sender].remainingPlayerCount = 0;
 
-      emit SetRoundSurvivor(gameId, _roundNumber, roundInfo[gameId][_roundNumber].survivorCount);
-      emit SetRemainingVote(gameId, _roundNumber, msg.sender, userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount);
+      emit LogSetRoundSurvivorCount(gameId, _roundNumber, roundInfo[gameId][_roundNumber].survivorCount);
+      emit LogSetRemainingVoteCount(gameId, _roundNumber, msg.sender, userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount);
     }
   }
 
@@ -324,7 +325,8 @@ contract SurvivalGame is
     require(_voteCount > 0, "SurvivalGame::_vote::no remaining vote");
     userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount = 0;
     roundInfo[gameId][_roundNumber].continueVoteCount.add(_voteCount);
-    emit SetRemainingVote(gameId, _roundNumber, msg.sender, 0);
+    emit LogSetRemainingVoteCount(gameId, _roundNumber, msg.sender, 0);
+    emit LogCurrentVoteCount(gameId, _roundNumber, roundInfo[gameId][_roundNumber].continueVoteCount, roundInfo[gameId][_roundNumber].stopVoteCount);
   }
 
   function voteStop() external onlyStarted nonReentrant {
@@ -333,7 +335,8 @@ contract SurvivalGame is
     require(_voteCount > 0, "SurvivalGame::_vote::no remaining vote");
     userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount = 0;
     roundInfo[gameId][_roundNumber].stopVoteCount.add(_voteCount);
-    emit SetRemainingVote(gameId, _roundNumber, msg.sender, 0);
+    emit LogSetRemainingVoteCount(gameId, _roundNumber, msg.sender, 0);
+    emit LogCurrentVoteCount(gameId, _roundNumber, roundInfo[gameId][_roundNumber].continueVoteCount, roundInfo[gameId][_roundNumber].stopVoteCount);
   }
 
   function claim(address _to) external nonReentrant onlyCompleted {
@@ -347,25 +350,25 @@ contract SurvivalGame is
     userInfo[gameId][_roundNumber][msg.sender].claimed = true;
   }
 
-  function _requestRandomNumber() internal {
+  function _LogRequestRandomNumber() internal {
     uint8 _nextRoundNumber = gameInfo[gameId].roundNumber.add(1);
     bytes32 _requestId = roundInfo[gameId][_nextRoundNumber].requestId;
-    require(_requestId == bytes32(0), "SurvivalGame::_requestRandomNumber::random numnber has been requested");
+    require(_requestId == bytes32(0), "SurvivalGame::_LogRequestRandomNumber::random numnber has been requested");
     roundInfo[gameId][_nextRoundNumber].requestId = entropyGenerator.randomNumber();
 
-    emit RequestRandomNumber(gameId, _nextRoundNumber, roundInfo[gameId][_nextRoundNumber].requestId);
+    emit LogRequestRandomNumber(gameId, _nextRoundNumber, roundInfo[gameId][_nextRoundNumber].requestId);
   }
 
   function _proceed(uint256 _entropy) internal {
     uint8 _nextRoundNumber = gameInfo[gameId].roundNumber.add(1);
     roundInfo[gameId][_nextRoundNumber].entropy = _entropy;
-    emit SetEntropy(gameId, _nextRoundNumber, _entropy);
+    emit LogSetEntropy(gameId, _nextRoundNumber, _entropy);
 
     gameInfo[gameId].roundNumber = _nextRoundNumber;
-    emit SetRoundNumber(gameId, _nextRoundNumber);
+    emit LogSetRoundNumber(gameId, _nextRoundNumber);
     
     gameInfo[gameId].status = GameStatus.Started;
-    emit SetGameStatus(gameId, "Started");
+    emit LogSetGameStatus(gameId, "Started");
 
     lastUpdatedBlock = block.number;
   }
@@ -376,10 +379,10 @@ contract SurvivalGame is
     uint256 _finalPrizeInLatte = prizePoolInLatte.mul(_roundInfo.prizeDistribution).div(1e4);
     uint256 _survivorCount = _roundInfo.survivorCount;
     gameInfo[gameId].finalPrizePerPlayer = _finalPrizeInLatte.div(_survivorCount);
-    emit SetFinalPrizePerPlayer(gameId, gameInfo[gameId].finalPrizePerPlayer);
+    emit LogSetFinalPrizePerPlayer(gameId, gameInfo[gameId].finalPrizePerPlayer);
 
     gameInfo[gameId].status = GameStatus.Completed;
-    emit SetGameStatus(gameId, "Completed");
+    emit LogSetGameStatus(gameId, "Completed");
 
     lastUpdatedBlock = block.number;
   }
