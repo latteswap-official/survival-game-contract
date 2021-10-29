@@ -9,6 +9,10 @@
 pragma solidity 0.6.12;
 
 interface IRandomNumberGenerator {
+  function feeAmount() external view returns (uint256 _feeAmount);
+
+  function feeToken() external view returns (address _feeToken);
+
   /**
    * Requests randomness from a user-provided seed
    */

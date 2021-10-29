@@ -9,11 +9,12 @@
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+
 import "./math/SafeMath8.sol";
 import "./math/SafeMath16.sol";
 import "./interfaces/IRandomNumberGenerator.sol";
@@ -26,23 +27,23 @@ contract SurvivalGame is
   AccessControlUpgradeable
 {
   // Libraries
-  using SafeMath for uint256;
+  using SafeMathUpgradeable for uint256;
   using SafeMath8 for uint8;
   using SafeMath16 for uint16;
-  using SafeERC20 for IERC20;
+  using SafeERC20Upgradeable for IERC20Upgradeable;
 
   // State variable
   // Instance of LATTE token (collateral currency)
-  IERC20 public latte;
+  IERC20Upgradeable public latte;
   // Instance of the random number generator
   IRandomNumberGenerator public entropyGenerator;
   // Minimum required blocks before operator can execute function again
   uint256 public operatorCooldown;
 
-  uint256 public gameId = 0;
-  uint256 internal nonce = 0;
-  uint256 public prizePoolInLatte = 0;
-  uint256 public lastUpdatedBlock = 0;
+  uint256 public gameId;
+  uint256 internal nonce;
+  uint256 public prizePoolInLatte;
+  uint256 public lastUpdatedBlock;
 
   // Constants
   uint8 public constant MAX_ROUND = 6;
@@ -106,7 +107,7 @@ contract SurvivalGame is
   event LogCreateRound(uint256 gameId, uint8 roundNumber, uint256 prizeDistribution, uint256 survivalBps);
   event LogRequestRandomNumber(uint256 gameId, uint8 roundNumber, bytes32 requestId);
   event LogSetEntropy(uint256 gameId, uint8 roundNumber, uint256 entropy);
-  
+
   event LogBuyPlayer(uint256 gameId, address to, uint256 size);
   event LogSetRemainingVoteCount(uint256 gameId, uint8 roundNumber, address playerMaster, uint256 remainingVoteCount);
   event LogCurrentVoteCount(uint256 gameId, uint8 roundNumber, uint256 voteContinueCount, uint256 voteStopCount);
@@ -116,15 +117,24 @@ contract SurvivalGame is
    * @notice Constructor
    * @param _latte: LATTE token contract
    */
-  function initialize(address _latte, address _entropyGenerator, uint256 _operatorCooldown) external initializer {
+  function initialize(
+    address _latte,
+    address _entropyGenerator,
+    uint256 _operatorCooldown
+  ) external initializer {
     // init functions
     OwnableUpgradeable.__Ownable_init();
     ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
     AccessControlUpgradeable.__AccessControl_init();
 
-    latte = IERC20(_latte);
+    latte = IERC20Upgradeable(_latte);
     entropyGenerator = IRandomNumberGenerator(_entropyGenerator);
     operatorCooldown = _operatorCooldown;
+
+    gameId = 0;
+    nonce = 0;
+    prizePoolInLatte = 0;
+    lastUpdatedBlock = 0;
 
     // create and assign default roles
     _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
@@ -135,7 +145,10 @@ contract SurvivalGame is
   /// @dev only the one having a OPERATOR_ROLE can continue an execution
   modifier onlyOper() {
     require(hasRole(OPERATOR_ROLE, _msgSender()), "SurvialGame::onlyOper::only OPERATOR role");
-    require(uint256(block.timestamp) - lastUpdatedBlock >= operatorCooldown, "SurvivalGame::onlyOper::OPERATOR should not proceed the game consecutively");
+    require(
+      uint256(block.timestamp) - lastUpdatedBlock >= operatorCooldown,
+      "SurvivalGame::onlyOper::OPERATOR should not proceed the game consecutively"
+    );
     _;
   }
 
@@ -226,7 +239,7 @@ contract SurvivalGame is
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {
     gameInfo[gameId].status = GameStatus.Processing;
-    _LogRequestRandomNumber();
+    _requestRandomNumber();
     lastUpdatedBlock = block.number;
     emit LogSetGameStatus(gameId, "Processing");
   }
@@ -242,7 +255,7 @@ contract SurvivalGame is
       _complete();
     } else {
       gameInfo[gameId].status = GameStatus.Processing;
-      _LogRequestRandomNumber();
+      _requestRandomNumber();
 
       emit LogSetGameStatus(gameId, "Processing");
     }
@@ -252,7 +265,7 @@ contract SurvivalGame is
     uint8 _nextRoundNumber = gameInfo[gameId].roundNumber.add(1);
     bytes32 _nextRoundRequestId = roundInfo[gameId][_nextRoundNumber].requestId;
     // Do not revert transaction when requestId is incorrect to avoid VRF routine mulfunction
-    if(_requestId == _nextRoundRequestId){
+    if (_requestId == _nextRoundRequestId) {
       _proceed(_randomNumber);
     }
   }
@@ -315,7 +328,12 @@ contract SurvivalGame is
       userInfo[gameId][_lastRoundNumber][msg.sender].remainingPlayerCount = 0;
 
       emit LogSetRoundSurvivorCount(gameId, _roundNumber, roundInfo[gameId][_roundNumber].survivorCount);
-      emit LogSetRemainingVoteCount(gameId, _roundNumber, msg.sender, userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount);
+      emit LogSetRemainingVoteCount(
+        gameId,
+        _roundNumber,
+        msg.sender,
+        userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount
+      );
     }
   }
 
@@ -326,7 +344,12 @@ contract SurvivalGame is
     userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount = 0;
     roundInfo[gameId][_roundNumber].continueVoteCount.add(_voteCount);
     emit LogSetRemainingVoteCount(gameId, _roundNumber, msg.sender, 0);
-    emit LogCurrentVoteCount(gameId, _roundNumber, roundInfo[gameId][_roundNumber].continueVoteCount, roundInfo[gameId][_roundNumber].stopVoteCount);
+    emit LogCurrentVoteCount(
+      gameId,
+      _roundNumber,
+      roundInfo[gameId][_roundNumber].continueVoteCount,
+      roundInfo[gameId][_roundNumber].stopVoteCount
+    );
   }
 
   function voteStop() external onlyStarted nonReentrant {
@@ -336,7 +359,12 @@ contract SurvivalGame is
     userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount = 0;
     roundInfo[gameId][_roundNumber].stopVoteCount.add(_voteCount);
     emit LogSetRemainingVoteCount(gameId, _roundNumber, msg.sender, 0);
-    emit LogCurrentVoteCount(gameId, _roundNumber, roundInfo[gameId][_roundNumber].continueVoteCount, roundInfo[gameId][_roundNumber].stopVoteCount);
+    emit LogCurrentVoteCount(
+      gameId,
+      _roundNumber,
+      roundInfo[gameId][_roundNumber].continueVoteCount,
+      roundInfo[gameId][_roundNumber].stopVoteCount
+    );
   }
 
   function claim(address _to) external nonReentrant onlyCompleted {
@@ -350,10 +378,13 @@ contract SurvivalGame is
     userInfo[gameId][_roundNumber][msg.sender].claimed = true;
   }
 
-  function _LogRequestRandomNumber() internal {
+  function _requestRandomNumber() internal {
     uint8 _nextRoundNumber = gameInfo[gameId].roundNumber.add(1);
     bytes32 _requestId = roundInfo[gameId][_nextRoundNumber].requestId;
-    require(_requestId == bytes32(0), "SurvivalGame::_LogRequestRandomNumber::random numnber has been requested");
+    require(_requestId == bytes32(0), "SurvivalGame::_requestRandomNumber::random numnber has been requested");
+    IERC20Upgradeable feeToken = IERC20Upgradeable(entropyGenerator.feeToken());
+    uint256 feeAmount = entropyGenerator.feeAmount();
+    feeToken.safeTransferFrom(msg.sender, address(entropyGenerator), feeAmount);
     roundInfo[gameId][_nextRoundNumber].requestId = entropyGenerator.randomNumber();
 
     emit LogRequestRandomNumber(gameId, _nextRoundNumber, roundInfo[gameId][_nextRoundNumber].requestId);
@@ -366,7 +397,7 @@ contract SurvivalGame is
 
     gameInfo[gameId].roundNumber = _nextRoundNumber;
     emit LogSetRoundNumber(gameId, _nextRoundNumber);
-    
+
     gameInfo[gameId].status = GameStatus.Started;
     emit LogSetGameStatus(gameId, "Started");
 
