@@ -112,6 +112,7 @@ contract SurvivalGame is
   event LogSetRemainingVoteCount(uint256 gameId, uint8 roundNumber, address playerMaster, uint256 remainingVoteCount);
   event LogCurrentVoteCount(uint256 gameId, uint8 roundNumber, uint256 voteContinueCount, uint256 voteStopCount);
   event LogSetRoundSurvivorCount(uint256 gameId, uint8 roundNumber, uint256 survivorCount);
+  event LogClaimReward(uint256 gameId, address to, uint256 players, uint256 amount);
 
   /**
    * @notice Constructor
@@ -386,6 +387,8 @@ contract SurvivalGame is
     uint256 _pendingReward = gameInfo[gameId].finalPrizePerPlayer.mul(_remainingPlayer);
     latte.safeTransfer(_to, _pendingReward);
     userInfo[gameId][_roundNumber][msg.sender].claimed = true;
+
+    emit LogClaimReward(gameId, _to, _remainingPlayer, _pendingReward);
   }
 
   function _requestRandomNumber() internal {
