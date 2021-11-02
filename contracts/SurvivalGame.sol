@@ -154,7 +154,7 @@ contract SurvivalGame is
 
   /// @dev only the entropy generator can continue an execution
   modifier onlyEntropyGenerator() {
-    require(msg.sender == address(entropyGenerator), "SurvialGame::onlyEntropyGenerator::only after game completed");
+    require(msg.sender == address(entropyGenerator), "SurvialGame::onlyEntropyGenerator::only entropy generator");
     _;
   }
 
@@ -317,7 +317,8 @@ contract SurvivalGame is
       for (uint256 i = 0; i < _remainingPlayerCount; ++i) {
         bytes memory _data = abi.encodePacked(_entropy, address(this), msg.sender, ++nonce);
         // eliminated if hash value mod 100 more than the survive percent
-        bool _survived = (uint256(keccak256(_data)) % 1e2).mul(1e2) > _survivalBps;
+        bool _survived = _survivalBps > (uint256(keccak256(_data)) % 1e2).mul(1e2);
+        console.log("_survived", _survived);
         if (_survived) {
           ++_survivorCount;
         }
@@ -383,9 +384,10 @@ contract SurvivalGame is
     bytes32 _requestId = roundInfo[gameId][_nextRoundNumber].requestId;
     require(_requestId == bytes32(0), "SurvivalGame::_requestRandomNumber::random numnber has been requested");
     IERC20Upgradeable feeToken = IERC20Upgradeable(entropyGenerator.feeToken());
-    uint256 feeAmount = entropyGenerator.feeAmount();
-    feeToken.safeTransferFrom(msg.sender, address(entropyGenerator), feeAmount);
-    roundInfo[gameId][_nextRoundNumber].requestId = entropyGenerator.randomNumber();
+    uint256 _feeAmount = entropyGenerator.feeAmount();
+    feeToken.safeTransferFrom(msg.sender, address(entropyGenerator), _feeAmount);
+    bytes32 _test = entropyGenerator.randomNumber();
+    roundInfo[gameId][_nextRoundNumber].requestId = _test;
 
     emit LogRequestRandomNumber(gameId, _nextRoundNumber, roundInfo[gameId][_nextRoundNumber].requestId);
   }
@@ -409,7 +411,9 @@ contract SurvivalGame is
     RoundInfo memory _roundInfo = roundInfo[gameId][_roundNumber];
     uint256 _finalPrizeInLatte = prizePoolInLatte.mul(_roundInfo.prizeDistribution).div(1e4);
     uint256 _survivorCount = _roundInfo.survivorCount;
-    gameInfo[gameId].finalPrizePerPlayer = _finalPrizeInLatte.div(_survivorCount);
+    if (_survivorCount > 0) {
+      gameInfo[gameId].finalPrizePerPlayer = _finalPrizeInLatte.div(_survivorCount);
+    }
     emit LogSetFinalPrizePerPlayer(gameId, gameInfo[gameId].finalPrizePerPlayer);
 
     gameInfo[gameId].status = GameStatus.Completed;
