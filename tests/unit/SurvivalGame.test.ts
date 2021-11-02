@@ -684,4 +684,138 @@ describe("SurvivalGame", () => {
       });
     });
   });
+
+  describe.skip("#voteContinue()", () => {
+    context("when game is guarantee survival", () => {
+      let gameId: BigNumber;
+      beforeEach(async () => {
+        // create game
+        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        gameId = await survivalGame.gameId();
+
+        const maxBatch = await survivalGame.MAX_BATCH_SIZE();
+        // alice registration
+        await latteAsAlice.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+        await survivalGameAsAlice.buy(maxBatch, await alice.getAddress());
+        // bob registration
+        await latteAsBob.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+        await survivalGameAsBob.buy(maxBatch, await bob.getAddress());
+
+        // start game
+        await survivalGameAsOperator.start();
+
+        // round 1 started
+        await randomGeneratorAsDeployer.fulfillRandomness(
+          (
+            await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber + 1)
+          ).requestId,
+          randomness
+        );
+
+        // round 1 checked
+        await survivalGameAsAlice.check();
+        await survivalGameAsBob.check();
+      });
+    });
+
+    /**TODO voteContinue unit tests
+     * emit events
+     * check states
+     */
+  });
+
+  describe.skip("#voteStop()", () => {
+    context("when game is guarantee survival", () => {
+      let gameId: BigNumber;
+      beforeEach(async () => {
+        // create game
+        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        gameId = await survivalGame.gameId();
+
+        const maxBatch = await survivalGame.MAX_BATCH_SIZE();
+        // alice registration
+        await latteAsAlice.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+        await survivalGameAsAlice.buy(maxBatch, await alice.getAddress());
+        // bob registration
+        await latteAsBob.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+        await survivalGameAsBob.buy(maxBatch, await bob.getAddress());
+
+        // start game
+        await survivalGameAsOperator.start();
+
+        // round 1 started
+        await randomGeneratorAsDeployer.fulfillRandomness(
+          (
+            await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber + 1)
+          ).requestId,
+          randomness
+        );
+
+        // round 1 checked
+        await survivalGameAsAlice.check();
+        await survivalGameAsBob.check();
+      });
+    });
+
+    /**TODO voteStop unit tests
+     * emit events
+     * check states
+     */
+  });
+
+  describe.skip("#claim()", () => {
+    context("when game is guarantee survival", () => {
+      let gameId: BigNumber;
+      beforeEach(async () => {
+        // create game
+        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        gameId = await survivalGame.gameId();
+
+        const maxRound = await survivalGame.MAX_ROUND();
+        const maxBatch = await survivalGame.MAX_BATCH_SIZE();
+        // alice registration
+        await latteAsAlice.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+        await survivalGameAsAlice.buy(maxBatch, await alice.getAddress());
+        // bob registration
+        await latteAsBob.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+        await survivalGameAsBob.buy(maxBatch, await bob.getAddress());
+
+        // start game
+        await survivalGameAsOperator.start();
+
+        // round 1 started
+        await randomGeneratorAsDeployer.fulfillRandomness(
+          (
+            await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber + 1)
+          ).requestId,
+          randomness
+        );
+
+        // round 1 checked
+        await survivalGameAsAlice.check();
+        await survivalGameAsBob.check();
+
+        for (let round = 2; round <= maxRound; round++) {
+          // processing
+          await survivalGameAsOperator.processing();
+          // started
+          await randomGeneratorAsDeployer.fulfillRandomness(
+            (
+              await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber + 1)
+            ).requestId,
+            randomness
+          );
+          // checked
+          await survivalGameAsAlice.check();
+          await survivalGameAsBob.check();
+        }
+      });
+    });
+
+    /**TODO claim unit tests
+     * emit events
+     * check states
+     * check balances
+     */
+  });
 });
