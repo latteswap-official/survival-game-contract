@@ -490,11 +490,128 @@ describe("SurvivalGame", () => {
 
         await survivalGameAsOperator.complete();
 
-        expect((await survivalGame.gameInfo(gameId)).status, "status should be Completed").to.eq(GameStatus.Completed);
+        const gameInfo = await survivalGame.gameInfo(gameId);
+        expect(gameInfo.status, "status should be Completed").to.eq(GameStatus.Completed);
+        expect(gameInfo.finalPrizePerPlayer, "should be returned as `finalPrizePerPlayer`").to.eq(finalPrizePerPlayer);
+      });
+    });
+  });
+
+  describe("#buy()", () => {
+    context("when 1 user buy 1 player", () => {
+      let gameId: BigNumber;
+      beforeEach(async () => {
+        // create game
+        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        gameId = await survivalGame.gameId();
+      });
+
+      it("should reverted if caller never approve LATTE with SurvivalGame as spender", async () => {
+        await expect(survivalGameAsAlice.buy(1, await alice.getAddress())).to.revertedWith(
+          "ERC20: transfer amount exceeds allowance"
+        );
+      });
+
+      it("should emit LogBuyPlayer, and LogSetTotalPlayer", async () => {
+        await latteAsAlice.approve(survivalGame.address, lattePerTicket);
+
+        await expect(survivalGameAsAlice.buy(1, await alice.getAddress()))
+          .to.emit(survivalGame, "LogBuyPlayer")
+          .withArgs(gameId, await alice.getAddress(), 1)
+          .to.emit(survivalGame, "LogSetTotalPlayer")
+          .withArgs(gameId, 1);
+      });
+
+      it("should transfer and burn LATTE correctly", async () => {
+        await latteAsAlice.approve(survivalGame.address, lattePerTicket);
+        const aliceBalance = await latte.balanceOf(await alice.getAddress());
+        const burnAmount = lattePerTicket.mul(burnBps).div(10000);
+
+        await survivalGameAsAlice.buy(1, await alice.getAddress());
+
+        expect(await latte.balanceOf(await alice.getAddress()), "should deduct with ticket price").to.eq(
+          aliceBalance.sub(lattePerTicket)
+        );
         expect(
-          (await survivalGame.gameInfo(gameId)).finalPrizePerPlayer,
-          "should be returned as `finalPrizePerPlayer`"
-        ).to.eq(finalPrizePerPlayer);
+          await latte.balanceOf(survivalGame.address),
+          "should hold LATTE with total ticket price and deduct with burn amount"
+        ).to.eq(lattePerTicket.sub(burnAmount));
+      });
+
+      it("should updated total player and user remaining player", async () => {
+        await latteAsAlice.approve(survivalGame.address, lattePerTicket);
+
+        await survivalGameAsAlice.buy(1, await alice.getAddress());
+
+        const gameInfo = await survivalGame.gameInfo(gameId);
+        const userInfo = await survivalGame.userInfo(gameId, gameInfo.roundNumber, await alice.getAddress());
+        expect(userInfo.remainingPlayerCount, "totalPlayer should be increased with buy size").to.eq(1);
+        expect(gameInfo.totalPlayer, "totalPlayer should be increased with buy size").to.eq(1);
+      });
+    });
+
+    context("when many users buy max batch size players", () => {
+      let gameId: BigNumber;
+      beforeEach(async () => {
+        // create game
+        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        gameId = await survivalGame.gameId();
+      });
+
+      it("should transfer and burn LATTE correctly", async () => {
+        const maxBatch = await survivalGame.MAX_BATCH_SIZE();
+        await latteAsAlice.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+        const aliceBalance = await latte.balanceOf(await alice.getAddress());
+        await latteAsBob.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+        const bobBalance = await latte.balanceOf(await bob.getAddress());
+        const burnAmount = lattePerTicket.mul(2).mul(maxBatch).mul(burnBps).div(10000);
+
+        await survivalGameAsAlice.buy(maxBatch, await alice.getAddress());
+        await survivalGameAsBob.buy(maxBatch, await bob.getAddress());
+
+        expect(await latte.balanceOf(await alice.getAddress()), "should deduct with ticket price").to.eq(
+          aliceBalance.sub(lattePerTicket.mul(maxBatch))
+        );
+        expect(await latte.balanceOf(await bob.getAddress()), "should deduct with ticket price").to.eq(
+          bobBalance.sub(lattePerTicket.mul(maxBatch))
+        );
+        expect(
+          await latte.balanceOf(survivalGame.address),
+          "should hold LATTE with total ticket price and deduct with burn amount"
+        ).to.eq(lattePerTicket.mul(2).mul(maxBatch).sub(burnAmount));
+      });
+
+      it("should updated total player and user remaining player", async () => {
+        const maxBatch = await survivalGame.MAX_BATCH_SIZE();
+        await latteAsAlice.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+        await latteAsBob.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+
+        await survivalGameAsAlice.buy(maxBatch, await alice.getAddress());
+        await survivalGameAsBob.buy(maxBatch, await bob.getAddress());
+
+        const gameInfo = await survivalGame.gameInfo(gameId);
+        const aliceInfo = await survivalGame.userInfo(gameId, gameInfo.roundNumber, await alice.getAddress());
+        const bobInfo = await survivalGame.userInfo(gameId, gameInfo.roundNumber, await bob.getAddress());
+        expect(aliceInfo.remainingPlayerCount, "totalPlayer should be increased with buy size").to.eq(maxBatch);
+        expect(bobInfo.remainingPlayerCount, "totalPlayer should be increased with buy size").to.eq(maxBatch);
+        expect(gameInfo.totalPlayer, "totalPlayer should be increased with buy size").to.eq(maxBatch * 2);
+      });
+    });
+
+    context("when buy after start game", () => {
+      let gameId: BigNumber;
+      beforeEach(async () => {
+        // create game
+        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        gameId = await survivalGame.gameId();
+        // start game
+        await survivalGameAsOperator.start();
+      });
+
+      it("should reverted", async () => {
+        await expect(survivalGameAsAlice.buy(1, await alice.getAddress())).to.revertedWith(
+          "SurvialGame::onlyOpened::only before game starting"
+        );
       });
     });
   });

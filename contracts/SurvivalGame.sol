@@ -294,6 +294,7 @@ contract SurvivalGame is
     prizePoolInLatte = prizePoolInLatte.add(_totalPrice).sub(_totalLatteBurn);
     userInfo[gameId][0][_to].remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount.add(_size);
     _remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount;
+    gameInfo[gameId].totalPlayer = gameInfo[gameId].totalPlayer.add(_size);
 
     emit LogBuyPlayer(gameId, _to, _size);
     emit LogSetTotalPlayer(gameId, gameInfo[gameId].totalPlayer);
