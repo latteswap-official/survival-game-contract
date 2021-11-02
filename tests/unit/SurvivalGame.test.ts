@@ -187,9 +187,9 @@ describe("SurvivalGame", () => {
 
         expect(await survivalGameWithFakeAsOperator.start())
           .to.emit(survivalGameWithFake, "LogRequestRandomNumber")
-          .withArgs(gameId.toNumber(), nextRound, requestId)
+          .withArgs(gameId, nextRound, requestId)
           .to.emit(survivalGameWithFake, "LogSetGameStatus")
-          .withArgs(gameId.toNumber(), "Processing");
+          .withArgs(gameId, "Processing");
       });
 
       it("should change current game status to Processing and correct requestId of next round", async () => {
@@ -226,11 +226,11 @@ describe("SurvivalGame", () => {
 
         await expect(randomGeneratorAsDeployer.fulfillRandomness(roundInfo.requestId, randomness))
           .to.emit(survivalGame, "LogSetEntropy")
-          .withArgs(gameId.toNumber(), nextRoundNumber, randomness)
+          .withArgs(gameId, nextRoundNumber, randomness)
           .to.emit(survivalGame, "LogSetRoundNumber")
-          .withArgs(gameId.toNumber(), nextRoundNumber)
+          .withArgs(gameId, nextRoundNumber)
           .to.emit(survivalGame, "LogSetGameStatus")
-          .withArgs(gameId.toNumber(), "Started");
+          .withArgs(gameId, "Started");
       });
 
       it("should change current game status to Started and update round number to 1 after consumeRandomNumber", async () => {
@@ -285,9 +285,9 @@ describe("SurvivalGame", () => {
         it("should emit LogSetFinalPrizePerPlayer, and LogSetGameStatus ", async () => {
           await expect(survivalGameAsOperator.processing())
             .to.emit(survivalGame, "LogSetFinalPrizePerPlayer")
-            .withArgs(gameId.toNumber(), 0)
+            .withArgs(gameId, 0)
             .to.emit(survivalGame, "LogSetGameStatus")
-            .withArgs(gameId.toNumber(), "Completed");
+            .withArgs(gameId, "Completed");
         });
 
         it("should not set finalPrizePerPlayer and set game status to Completed", async () => {
@@ -336,7 +336,7 @@ describe("SurvivalGame", () => {
           await expect(survivalGameAsOperator.processing())
             .to.emit(survivalGame, "LogRequestRandomNumber")
             .to.emit(survivalGame, "LogSetGameStatus")
-            .withArgs(gameId.toNumber(), "Processing");
+            .withArgs(gameId, "Processing");
         });
 
         it("should set game status to Processing and random requestId of next round", async () => {
@@ -408,9 +408,9 @@ describe("SurvivalGame", () => {
 
           await expect(survivalGameAsOperator.processing())
             .to.emit(survivalGame, "LogSetFinalPrizePerPlayer")
-            .withArgs(gameId.toNumber(), finalPrizePerPlayer.toString())
+            .withArgs(gameId, finalPrizePerPlayer.toString())
             .to.emit(survivalGame, "LogSetGameStatus")
-            .withArgs(gameId.toNumber(), "Completed");
+            .withArgs(gameId, "Completed");
         });
 
         it("should set game status to Completed and set finalPrizePerplayer in gameInfo", async () => {
@@ -476,9 +476,9 @@ describe("SurvivalGame", () => {
 
         await expect(survivalGameAsOperator.complete())
           .to.emit(survivalGame, "LogSetFinalPrizePerPlayer")
-          .withArgs(gameId.toNumber(), finalPrizePerPlayer.toString())
+          .withArgs(gameId, finalPrizePerPlayer.toString())
           .to.emit(survivalGame, "LogSetGameStatus")
-          .withArgs(gameId.toNumber(), "Completed");
+          .withArgs(gameId, "Completed");
       });
 
       it("should set game status to Completed and set finalPrizePerplayer in gameInfo", async () => {
@@ -612,6 +612,75 @@ describe("SurvivalGame", () => {
         await expect(survivalGameAsAlice.buy(1, await alice.getAddress())).to.revertedWith(
           "SurvialGame::onlyOpened::only before game starting"
         );
+      });
+    });
+  });
+
+  describe("#check()", () => {
+    context("when game is guarantee survival", () => {
+      let gameId: BigNumber;
+      beforeEach(async () => {
+        // create game
+        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        gameId = await survivalGame.gameId();
+
+        const maxBatch = await survivalGame.MAX_BATCH_SIZE();
+        // alice registration
+        await latteAsAlice.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+        await survivalGameAsAlice.buy(maxBatch, await alice.getAddress());
+        // bob registration
+        await latteAsBob.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+        await survivalGameAsBob.buy(maxBatch, await bob.getAddress());
+
+        // start game
+        await survivalGameAsOperator.start();
+
+        // round 1 started
+        await randomGeneratorAsDeployer.fulfillRandomness(
+          (
+            await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber + 1)
+          ).requestId,
+          randomness
+        );
+      });
+
+      it("should emit LogSetRoundSurvivorCount, and LogSetRemainingVoteCount", async () => {
+        const maxBatch = await survivalGame.MAX_BATCH_SIZE();
+        const gameInfo = await survivalGame.gameInfo(gameId);
+        await expect(survivalGameAsAlice.check())
+          .to.emit(survivalGame, "LogSetRoundSurvivorCount")
+          .withArgs(gameId, gameInfo.roundNumber, maxBatch)
+          .to.emit(survivalGame, "LogSetRemainingVoteCount")
+          .withArgs(gameId, gameInfo.roundNumber, await alice.getAddress(), maxBatch);
+        await expect(survivalGameAsBob.check())
+          .to.emit(survivalGame, "LogSetRoundSurvivorCount")
+          .withArgs(gameId, gameInfo.roundNumber, maxBatch * 2)
+          .to.emit(survivalGame, "LogSetRemainingVoteCount")
+          .withArgs(gameId, gameInfo.roundNumber, await bob.getAddress(), maxBatch);
+      });
+
+      it("should successfully check", async () => {
+        const maxBatch = await survivalGame.MAX_BATCH_SIZE();
+        const gameInfo = await survivalGame.gameInfo(gameId);
+
+        await survivalGameAsAlice.check();
+
+        const aliceInfo = await survivalGame.userInfo(gameId, gameInfo.roundNumber, await alice.getAddress());
+        const lastAliceInfo = await survivalGame.userInfo(gameId, gameInfo.roundNumber - 1, await alice.getAddress());
+        expect(aliceInfo.remainingPlayerCount).to.eq(maxBatch);
+        expect(aliceInfo.remainingVoteCount).to.eq(maxBatch);
+        expect(lastAliceInfo.remainingPlayerCount).to.eq(0);
+
+        await survivalGameAsBob.check();
+
+        const bobInfo = await survivalGame.userInfo(gameId, gameInfo.roundNumber, await bob.getAddress());
+        const lastBobInfo = await survivalGame.userInfo(gameId, gameInfo.roundNumber - 1, await bob.getAddress());
+        expect(bobInfo.remainingPlayerCount).to.eq(maxBatch);
+        expect(bobInfo.remainingVoteCount).to.eq(maxBatch);
+        expect(lastBobInfo.remainingPlayerCount).to.eq(0);
+
+        const roundInfo = await survivalGame.roundInfo(gameId, gameInfo.roundNumber);
+        expect(roundInfo.survivorCount).to.eq(maxBatch * 2);
       });
     });
   });

@@ -220,6 +220,14 @@ contract SurvivalGame is
 
     // Warning: Round index start from 1 not 0
     for (uint8 i = 1; i <= MAX_ROUND; ++i) {
+      require(
+        _prizeDistributions[i.sub(1)] > 0 && _prizeDistributions[i.sub(1)] <= 1e4,
+        "SurvivalGame::create::invalid prizeDistributions BPS"
+      );
+      require(
+        _survivalsBps[i.sub(1)] > 0 && _survivalsBps[i.sub(1)] <= 1e4,
+        "SurvivalGame::create::invalid survival BPS"
+      );
       RoundInfo memory _roundInfo = RoundInfo({
         prizeDistribution: _prizeDistributions[i.sub(1)],
         survivalBps: _survivalsBps[i.sub(1)],
@@ -312,13 +320,12 @@ contract SurvivalGame is
     uint256 _entropy = _roundInfo.entropy;
     require(_entropy != 0, "SurvivalGame::_check::no entropy");
     uint256 _survivalBps = _roundInfo.survivalBps;
-    require(_survivalBps != 0, "SurvivalGame::_check::no survival BPS");
     {
       _survivorCount = 0;
       for (uint256 i = 0; i < _remainingPlayerCount; ++i) {
         bytes memory _data = abi.encodePacked(_entropy, address(this), msg.sender, ++nonce);
         // eliminated if hash value mod 100 more than the survive percent
-        bool _survived = _survivalBps > (uint256(keccak256(_data)) % 1e2).mul(1e2);
+        bool _survived = _survivalBps > (uint256(keccak256(_data)) % 1e4);
         if (_survived) {
           ++_survivorCount;
         }
