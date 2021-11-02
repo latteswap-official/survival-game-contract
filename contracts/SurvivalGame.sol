@@ -318,7 +318,6 @@ contract SurvivalGame is
         bytes memory _data = abi.encodePacked(_entropy, address(this), msg.sender, ++nonce);
         // eliminated if hash value mod 100 more than the survive percent
         bool _survived = _survivalBps > (uint256(keccak256(_data)) % 1e2).mul(1e2);
-        console.log("_survived", _survived);
         if (_survived) {
           ++_survivorCount;
         }
