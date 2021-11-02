@@ -350,7 +350,9 @@ contract SurvivalGame is
     uint256 _voteCount = userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount;
     require(_voteCount > 0, "SurvivalGame::_vote::no remaining vote");
     userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount = 0;
-    roundInfo[gameId][_roundNumber].continueVoteCount.add(_voteCount);
+    roundInfo[gameId][_roundNumber].continueVoteCount = roundInfo[gameId][_roundNumber].continueVoteCount.add(
+      _voteCount
+    );
     emit LogSetRemainingVoteCount(gameId, _roundNumber, msg.sender, 0);
     emit LogCurrentVoteCount(
       gameId,
@@ -365,7 +367,7 @@ contract SurvivalGame is
     uint256 _voteCount = userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount;
     require(_voteCount > 0, "SurvivalGame::_vote::no remaining vote");
     userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount = 0;
-    roundInfo[gameId][_roundNumber].stopVoteCount.add(_voteCount);
+    roundInfo[gameId][_roundNumber].stopVoteCount = roundInfo[gameId][_roundNumber].stopVoteCount.add(_voteCount);
     emit LogSetRemainingVoteCount(gameId, _roundNumber, msg.sender, 0);
     emit LogCurrentVoteCount(
       gameId,
