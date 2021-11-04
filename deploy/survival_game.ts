@@ -24,7 +24,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const [deployer, operator] = await ethers.getSigners();
 
   const OPERATOR_ADDRESS = await operator.getAddress();
-  const OPER_COOLDOWN_TS = 30 * 60; // 30 mins
+  const OPER_COOLDOWN_TS = 5 * 60; // 5 mins
+  const FEE_TOKEN = "0x404460C6A5EdE2D891e8297795264fDe62ADBB75";
 
   await withNetworkFile(async () => {
     const randomNumberGenerator = RandomNumberGenerator__factory.connect(config.RandomNumberGenerator, deployer);
@@ -61,7 +62,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
     // operator approve LINK Token with survivalGame as spender
     console.log(`>> Execute Transaction to approve operator's LINK to survivalGame`);
-    const linkToken = ERC20__factory.connect(await randomNumberGenerator.feeToken(), operator);
+    const linkToken = ERC20__factory.connect(FEE_TOKEN, operator);
     estimateGas = await linkToken.estimateGas.approve(survivalGame.address, constants.MaxUint256);
     tx = await linkToken.approve(survivalGame.address, constants.MaxUint256, {
       gasLimit: estimateGas.add(100000),
