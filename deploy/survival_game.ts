@@ -23,12 +23,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   const [deployer, operator] = await ethers.getSigners();
 
-  const RANDOM_NUMBER_GENERATOR_ADDRESS = "0x001E5d5cC48D1f95E13A3Bd7BB1B2Da90D325105";
   const OPERATOR_ADDRESS = await operator.getAddress();
   const OPER_COOLDOWN_TS = 60 * 1000; // 1 hr
 
   await withNetworkFile(async () => {
-    const randomNumberGenerator = RandomNumberGenerator__factory.connect(RANDOM_NUMBER_GENERATOR_ADDRESS, deployer);
+    const randomNumberGenerator = RandomNumberGenerator__factory.connect(config.RandomNumberGenerator, deployer);
 
     // DEPLOY SurvivalGame
     console.log(`>> Deploy SurvivalGame via proxy`);
