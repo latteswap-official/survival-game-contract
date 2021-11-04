@@ -98,20 +98,35 @@ contract SurvivalGame is
   // gameId => roundNumber => userAddress => userInfo
   mapping(uint256 => mapping(uint8 => mapping(address => UserInfo))) public userInfo;
 
-  event LogCreateGame(uint256 gameId, uint256 costPerTicket, uint256 burnBps);
-  event LogSetGameStatus(uint256 gameId, string status);
-  event LogSetTotalPlayer(uint256 gameId, uint256 totalPlayer);
-  event LogSetRoundNumber(uint256 gameId, uint8 roundNumber);
-  event LogSetFinalPrizePerPlayer(uint256 gameId, uint256 prize);
-  event LogCreateRound(uint256 gameId, uint8 roundNumber, uint256 prizeDistribution, uint256 survivalBps);
-  event LogRequestRandomNumber(uint256 gameId, uint8 roundNumber, bytes32 requestId);
-  event LogSetEntropy(uint256 gameId, uint8 roundNumber, uint256 entropy);
+  event LogCreateGame(uint256 indexed gameId, uint256 costPerTicket, uint256 burnBps);
+  event LogSetGameStatus(uint256 indexed gameId, string status);
+  event LogSetTotalPlayer(uint256 indexed gameId, uint256 totalPlayer);
+  event LogSetRoundNumber(uint256 indexed gameId, uint8 indexed roundNumber);
+  event LogSetFinalPrizePerPlayer(uint256 indexed gameId, uint256 prize);
+  event LogCreateRound(
+    uint256 indexed gameId,
+    uint8 indexed roundNumber,
+    uint256 prizeDistribution,
+    uint256 survivalBps
+  );
+  event LogRequestRandomNumber(uint256 indexed gameId, uint8 indexed roundNumber, bytes32 requestId);
+  event LogSetEntropy(uint256 indexed gameId, uint8 indexed roundNumber, uint256 entropy);
 
-  event LogBuyPlayer(uint256 gameId, address to, uint256 size);
-  event LogSetRemainingVoteCount(uint256 gameId, uint8 roundNumber, address playerMaster, uint256 remainingVoteCount);
-  event LogCurrentVoteCount(uint256 gameId, uint8 roundNumber, uint256 voteContinueCount, uint256 voteStopCount);
-  event LogSetRoundSurvivorCount(uint256 gameId, uint8 roundNumber, uint256 survivorCount);
-  event LogClaimReward(uint256 gameId, address to, uint256 players, uint256 amount);
+  event LogBuyPlayer(uint256 indexed gameId, address to, uint256 size);
+  event LogSetRemainingVoteCount(
+    uint256 indexed gameId,
+    uint8 indexed roundNumber,
+    address playerMaster,
+    uint256 remainingVoteCount
+  );
+  event LogCurrentVoteCount(
+    uint256 indexed gameId,
+    uint8 indexed roundNumber,
+    uint256 voteContinueCount,
+    uint256 voteStopCount
+  );
+  event LogSetRoundSurvivorCount(uint256 indexed gameId, uint8 indexed roundNumber, uint256 survivorCount);
+  event LogClaimReward(uint256 indexed gameId, address to, uint256 players, uint256 amount);
 
   /**
    * @notice Constructor
@@ -194,7 +209,7 @@ contract SurvivalGame is
     }
   }
 
-  function prizePoolInLatte() external view returns (uint256 _balance) {
+  function prizePoolInLatte() public view returns (uint256 _balance) {
     _balance = IERC20Upgradeable(latte).balanceOf(address(this));
   }
 
@@ -264,12 +279,13 @@ contract SurvivalGame is
       roundInfo[gameId][_roundNumber].survivorCount == 0
     ) {
       _complete();
-    } else {
-      gameInfo[gameId].status = GameStatus.Processing;
-      _requestRandomNumber();
-
-      emit LogSetGameStatus(gameId, "Processing");
+      return;
     }
+
+    gameInfo[gameId].status = GameStatus.Processing;
+    _requestRandomNumber();
+
+    emit LogSetGameStatus(gameId, "Processing");
   }
 
   function consumeRandomNumber(bytes32 _requestId, uint256 _randomNumber) external override onlyEntropyGenerator {
@@ -280,11 +296,6 @@ contract SurvivalGame is
       _proceed(_randomNumber);
     }
   }
-
-  // /// @dev force complete the game
-  // function complete() external onlyOper onlyStarted {
-  //   _complete();
-  // }
 
   /// User's functions
   /// @dev buy players and give ownership to _to
@@ -303,11 +314,12 @@ contract SurvivalGame is
       _totalPrice = _price.mul(_size);
       _totalLatteBurn = _totalPrice.mul(gameInfo[gameId].burnBps).div(1e4);
     }
-    latte.safeTransferFrom(msg.sender, address(this), _totalPrice);
-    latte.safeTransfer(DEAD_ADDR, _totalLatteBurn);
     userInfo[gameId][0][_to].remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount.add(_size);
     _remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount;
     gameInfo[gameId].totalPlayer = gameInfo[gameId].totalPlayer.add(_size);
+
+    latte.safeTransferFrom(msg.sender, address(this), _totalPrice);
+    latte.safeTransfer(DEAD_ADDR, _totalLatteBurn);
 
     emit LogBuyPlayer(gameId, _to, _size);
     emit LogSetTotalPlayer(gameId, gameInfo[gameId].totalPlayer);
@@ -387,9 +399,11 @@ contract SurvivalGame is
     require(!_userInfo.claimed, "SurvivalGame::claim::rewards has been claimed");
     uint256 _remainingPlayer = _userInfo.remainingPlayerCount;
     require(_remainingPlayer > 0, "SurvivalGame::claim::no reward for losers");
+
     uint256 _pendingReward = gameInfo[gameId].finalPrizePerPlayer.mul(_remainingPlayer);
-    latte.safeTransfer(_to, _pendingReward);
     userInfo[gameId][_roundNumber][msg.sender].claimed = true;
+
+    latte.safeTransfer(_to, _pendingReward);
 
     emit LogClaimReward(gameId, _to, _remainingPlayer, _pendingReward);
   }
@@ -397,10 +411,10 @@ contract SurvivalGame is
   function _requestRandomNumber() internal {
     uint8 _nextRoundNumber = gameInfo[gameId].roundNumber.add(1);
     bytes32 _requestId = roundInfo[gameId][_nextRoundNumber].requestId;
-    require(_requestId == bytes32(0), "SurvivalGame::_requestRandomNumber::random numnber has been requested");
-    IERC20Upgradeable feeToken = IERC20Upgradeable(entropyGenerator.feeToken());
+    require(_requestId == bytes32(0), "SurvivalGame::_requestRandomNumber::random number has been requested");
+    IERC20Upgradeable _feeToken = IERC20Upgradeable(entropyGenerator.feeToken());
     uint256 _feeAmount = entropyGenerator.feeAmount();
-    feeToken.safeTransferFrom(msg.sender, address(entropyGenerator), _feeAmount);
+    _feeToken.safeTransferFrom(msg.sender, address(entropyGenerator), _feeAmount);
     roundInfo[gameId][_nextRoundNumber].requestId = entropyGenerator.randomNumber();
 
     emit LogRequestRandomNumber(gameId, _nextRoundNumber, roundInfo[gameId][_nextRoundNumber].requestId);
@@ -423,7 +437,7 @@ contract SurvivalGame is
   function _complete() internal {
     uint8 _roundNumber = gameInfo[gameId].roundNumber;
     RoundInfo memory _roundInfo = roundInfo[gameId][_roundNumber];
-    uint256 _prizePool = IERC20Upgradeable(latte).balanceOf(address(this));
+    uint256 _prizePool = prizePoolInLatte();
     uint256 _finalPrizeInLatte = _prizePool.mul(_roundInfo.prizeDistribution).div(1e4);
     uint256 _survivorCount = _roundInfo.survivorCount;
     if (_survivorCount > 0) {

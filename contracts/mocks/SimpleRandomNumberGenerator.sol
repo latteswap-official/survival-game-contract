@@ -16,6 +16,8 @@ contract SimpleRandomNumberGenerator is IRandomNumberGenerator, Ownable {
   mapping(bytes32 => uint256) public randomResults;
   mapping(address => bool) internal consumers;
 
+  event LogSetAllowance(address consumer, bool allowance);
+
   constructor(
     address _linkToken,
     bytes32 _keyHash,
@@ -27,7 +29,7 @@ contract SimpleRandomNumberGenerator is IRandomNumberGenerator, Ownable {
   }
 
   modifier onlyConsumer() {
-    require(consumers[msg.sender], "SimpleRandomNumberGenerator::Only survivalGame can call function");
+    require(consumers[msg.sender], "SimpleRandomNumberGenerator::Only whitelisted consumer can call function");
     _;
   }
 
@@ -41,6 +43,7 @@ contract SimpleRandomNumberGenerator is IRandomNumberGenerator, Ownable {
 
   function setAllowance(address _consumer, bool _allowance) external onlyOwner {
     consumers[_consumer] = _allowance;
+    emit LogSetAllowance(_consumer, _allowance);
   }
 
   function randomNumber() public override onlyConsumer returns (bytes32 requestId) {

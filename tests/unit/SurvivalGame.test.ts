@@ -461,69 +461,6 @@ describe("SurvivalGame", () => {
     });
   });
 
-  // describe("#complete()", () => {
-  //   context("when force completed", () => {
-  //     let gameId: BigNumber;
-
-  //     beforeEach(async () => {
-  //       // create game
-  //       await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
-  //       gameId = await survivalGame.gameId();
-
-  //       const maxBatch = 10;
-  //       // alice registration
-  //       await latteAsAlice.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
-  //       await survivalGameAsAlice.buy(maxBatch, await alice.getAddress());
-  //       // bob registration
-  //       await latteAsBob.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
-  //       await survivalGameAsBob.buy(maxBatch, await bob.getAddress());
-
-  //       // start game
-  //       await survivalGameAsOperator.start();
-
-  //       // round 1 started
-  //       await randomGeneratorAsDeployer.fulfillRandomness(
-  //         (
-  //           await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber + 1)
-  //         ).requestId,
-  //         randomness
-  //       );
-
-  //       // round 1 checked
-  //       await survivalGameAsAlice.check();
-  //       await survivalGameAsBob.check();
-  //     });
-
-  //     it("should emit LogSetFinalPrizePerPlayer, and LogSetGameStatus", async () => {
-  //       const roundInfo = await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber);
-  //       const finalPrizePerPlayer = (await survivalGame.prizePoolInLatte())
-  //         .mul(roundInfo.prizeDistribution)
-  //         .div(10000)
-  //         .div(20); // alice + bob max batch each
-
-  //       await expect(survivalGameAsOperator.complete())
-  //         .to.emit(survivalGame, "LogSetFinalPrizePerPlayer")
-  //         .withArgs(gameId, finalPrizePerPlayer.toString())
-  //         .to.emit(survivalGame, "LogSetGameStatus")
-  //         .withArgs(gameId, "Completed");
-  //     });
-
-  //     it("should set game status to Completed and set finalPrizePerplayer in gameInfo", async () => {
-  //       const roundInfo = await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber);
-  //       const finalPrizePerPlayer = (await survivalGame.prizePoolInLatte())
-  //         .mul(roundInfo.prizeDistribution)
-  //         .div(10000)
-  //         .div(20); // alice + bob max batch each
-
-  //       await survivalGameAsOperator.complete();
-
-  //       const gameInfo = await survivalGame.gameInfo(gameId);
-  //       expect(gameInfo.status, "status should be Completed").to.eq(GameStatus.Completed);
-  //       expect(gameInfo.finalPrizePerPlayer, "should be returned as `finalPrizePerPlayer`").to.eq(finalPrizePerPlayer);
-  //     });
-  //   });
-  // });
-
   describe("#buy()", () => {
     context("when 1 user buy 1 player", () => {
       let gameId: BigNumber;

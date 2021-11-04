@@ -22,8 +22,10 @@ contract RandomNumberGenerator is IRandomNumberGenerator, VRFConsumerBase, Ownab
   mapping(bytes32 => uint256) public randomResults;
   mapping(address => bool) internal consumers;
 
+  event LogSetAllowance(address consumer, bool allowance);
+
   modifier onlyConsumer() {
-    require(consumers[msg.sender], "RandomNumberGenerator::Only survivalGame can call function");
+    require(consumers[msg.sender], "RandomNumberGenerator::Only whitelisted consumer can call function");
     _;
   }
 
@@ -48,6 +50,7 @@ contract RandomNumberGenerator is IRandomNumberGenerator, VRFConsumerBase, Ownab
 
   function setAllowance(address _consumer, bool _allowance) external onlyOwner {
     consumers[_consumer] = _allowance;
+    emit LogSetAllowance(_consumer, _allowance);
   }
 
   /**

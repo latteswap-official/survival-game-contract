@@ -50,6 +50,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       VRF.KEY_HASH,
       VRF.FEE
     );
+    await randomNumberGenerator.deployed();
     console.log(`>> Deployed at ${randomNumberGenerator.address}`);
     console.log("✅ Done deploying a RandomNumberGenerator");
   });
