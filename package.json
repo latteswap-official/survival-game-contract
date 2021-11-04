@@ -15,7 +15,9 @@
     "test:case": "mocha --timeout 500000 --require hardhat/register --file tests/**/* --extension ts -g",
     "prepublishOnly": "yarn compile && yarn build",
 
-    "test:unit:survivalGame": "hardhat test --no-compile ./tests/unit/SurvivalGame.test.ts"
+    "test:unit:survivalGame": "hardhat test --no-compile ./tests/unit/SurvivalGame.test.ts",
+
+    "deploy:mainnet:survivalGame": "hardhat --network mainnet deploy --no-compile --reset --tags DeploySurvivalGame"
   },
   "version": "1.0.0-rc.0",
   "main": "index.js",
