@@ -1,1 +1,1 @@
-# squid-game-contract
+# survival-game-contract
