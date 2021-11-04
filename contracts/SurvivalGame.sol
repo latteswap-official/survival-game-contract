@@ -42,7 +42,7 @@ contract SurvivalGame is
 
   uint256 public gameId;
   uint256 internal nonce;
-  uint256 public prizePoolInLatte;
+  // uint256 public prizePoolInLatte;
   uint256 public lastUpdatedBlock;
 
   // Constants
@@ -134,7 +134,7 @@ contract SurvivalGame is
 
     gameId = 0;
     nonce = 0;
-    prizePoolInLatte = 0;
+    // prizePoolInLatte = 0;
     lastUpdatedBlock = 0;
 
     // create and assign default roles
@@ -194,6 +194,10 @@ contract SurvivalGame is
     } else {
       _amount = roundInfo[gameId][_gameInfo.roundNumber.sub(1)].survivorCount;
     }
+  }
+
+  function prizePoolInLatte() external view returns (uint256 _balance) {
+    _balance = IERC20Upgradeable(latte).balanceOf(address(this));
   }
 
   /// Operator's functions
@@ -303,7 +307,6 @@ contract SurvivalGame is
     }
     latte.safeTransferFrom(msg.sender, address(this), _totalPrice);
     latte.safeTransfer(DEAD_ADDR, _totalLatteBurn);
-    prizePoolInLatte = prizePoolInLatte.add(_totalPrice).sub(_totalLatteBurn);
     userInfo[gameId][0][_to].remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount.add(_size);
     _remainingPlayerCount = userInfo[gameId][0][_to].remainingPlayerCount;
     gameInfo[gameId].totalPlayer = gameInfo[gameId].totalPlayer.add(_size);
@@ -422,7 +425,8 @@ contract SurvivalGame is
   function _complete() internal {
     uint8 _roundNumber = gameInfo[gameId].roundNumber;
     RoundInfo memory _roundInfo = roundInfo[gameId][_roundNumber];
-    uint256 _finalPrizeInLatte = prizePoolInLatte.mul(_roundInfo.prizeDistribution).div(1e4);
+    uint256 _prizePool = IERC20Upgradeable(latte).balanceOf(address(this));
+    uint256 _finalPrizeInLatte = _prizePool.mul(_roundInfo.prizeDistribution).div(1e4);
     uint256 _survivorCount = _roundInfo.survivorCount;
     if (_survivorCount > 0) {
       gameInfo[gameId].finalPrizePerPlayer = _finalPrizeInLatte.div(_survivorCount);
