@@ -77,6 +77,7 @@ describe("SurvivalGame", () => {
   let simpleRandomNumberGenerator: SimpleRandomNumberGenerator;
   let fakeRandomNumberGenerator: FakeContract<SimpleRandomNumberGenerator>;
   let survivalGame: SurvivalGame;
+  let survivalGameWithCooldown: SurvivalGame;
   let survivalGameWithFake: SurvivalGame;
 
   // Bindings
@@ -97,6 +98,7 @@ describe("SurvivalGame", () => {
       simpleRandomNumberGenerator,
       fakeRandomNumberGenerator,
       survivalGame,
+      survivalGameWithCooldown,
       survivalGameWithFake,
       signatureFn,
     } = await waffle.loadFixture(survivalGameUnitTestFigture));
@@ -194,44 +196,59 @@ describe("SurvivalGame", () => {
   });
 
   describe("#start()", () => {
-    beforeEach(async () => {
-      // create game
-      await survivalGameWithFakeAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
+    context("operator has cooldown", () => {
+      it("should reverted if call consecutively", async () => {
+        //create game
+        await survivalGameWithCooldown.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
+
+        await expect(survivalGameWithCooldown.start()).to.revertedWith(
+          "SurvivalGame::onlyOper::OPERATOR should not proceed the game consecutively"
+        );
+      });
     });
-    context("when start game", () => {
-      it("should revert if caller is not OPERATOR role", async () => {
-        await expect(survivalGameWithFakeAsAlice.start()).to.revertedWith("SurvivalGame::onlyOper::only OPERATOR role");
+
+    context("zero operator cooldown", () => {
+      beforeEach(async () => {
+        // create game
+        await survivalGameWithFakeAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
       });
+      context("when start game", () => {
+        it("should revert if caller is not OPERATOR role", async () => {
+          await expect(survivalGameWithFakeAsAlice.start()).to.revertedWith(
+            "SurvivalGame::onlyOper::only OPERATOR role"
+          );
+        });
 
-      it("should emit LogRequestRandomNumber and LogSetGameStatus", async () => {
-        const gameId = await survivalGameWithFake.gameId();
-        const gameInfo = await survivalGameWithFake.gameInfo(gameId);
-        const nextRound = gameInfo.roundNumber + 1;
+        it("should emit LogRequestRandomNumber and LogSetGameStatus", async () => {
+          const gameId = await survivalGameWithFake.gameId();
+          const gameInfo = await survivalGameWithFake.gameInfo(gameId);
+          const nextRound = gameInfo.roundNumber + 1;
 
-        // mock returns
-        const requestId = ethers.utils.formatBytes32String("requestId");
-        fakeRandomNumberGenerator.randomNumber.returns(requestId);
+          // mock returns
+          const requestId = ethers.utils.formatBytes32String("requestId");
+          fakeRandomNumberGenerator.randomNumber.returns(requestId);
 
-        expect(await survivalGameWithFakeAsOperator.start())
-          .to.emit(survivalGameWithFake, "LogRequestRandomNumber")
-          .withArgs(gameId, nextRound, requestId)
-          .to.emit(survivalGameWithFake, "LogSetGameStatus")
-          .withArgs(gameId, "Processing");
-      });
+          expect(await survivalGameWithFakeAsOperator.start())
+            .to.emit(survivalGameWithFake, "LogRequestRandomNumber")
+            .withArgs(gameId, nextRound, requestId)
+            .to.emit(survivalGameWithFake, "LogSetGameStatus")
+            .withArgs(gameId, "Processing");
+        });
 
-      it("should change current game status to Processing and correct requestId of next round", async () => {
-        await survivalGameWithFakeAsOperator.start();
+        it("should change current game status to Processing and correct requestId of next round", async () => {
+          await survivalGameWithFakeAsOperator.start();
 
-        // mock returns
-        const requestId = ethers.utils.formatBytes32String("requestId");
-        fakeRandomNumberGenerator.randomNumber.returns(requestId);
+          // mock returns
+          const requestId = ethers.utils.formatBytes32String("requestId");
+          fakeRandomNumberGenerator.randomNumber.returns(requestId);
 
-        const gameId = await survivalGameWithFake.gameId();
-        const gameInfo = await survivalGameWithFake.gameInfo(gameId);
-        const nextRoundNumber = gameInfo.roundNumber + 1;
-        expect(gameInfo.status, "status should be processing").to.eq(GameStatus.Processing);
-        const roundInfo = await survivalGameWithFake.roundInfo(gameId, nextRoundNumber);
-        expect(roundInfo.requestId, "request id should be returned as `requestId`").to.eq(requestId);
+          const gameId = await survivalGameWithFake.gameId();
+          const gameInfo = await survivalGameWithFake.gameInfo(gameId);
+          const nextRoundNumber = gameInfo.roundNumber + 1;
+          expect(gameInfo.status, "status should be processing").to.eq(GameStatus.Processing);
+          const roundInfo = await survivalGameWithFake.roundInfo(gameId, nextRoundNumber);
+          expect(roundInfo.requestId, "request id should be returned as `requestId`").to.eq(requestId);
+        });
       });
     });
   });
