@@ -1,9 +1,9 @@
 import { FakeContract, smock } from "@defi-wonderland/smock";
-import { Signer } from "ethers";
+import { constants, Signer } from "ethers";
 import { ethers, upgrades } from "hardhat";
 import {
-  SimpleRandomGenerator,
-  SimpleRandomGenerator__factory,
+  SimpleRandomNumberGenerator,
+  SimpleRandomNumberGenerator__factory,
   SimpleToken,
   SimpleToken__factory,
   SurvivalGame,
@@ -13,8 +13,8 @@ import {
 export interface ISurvivalGameUnitTestFixtureDTO {
   latte: SimpleToken;
   fee: SimpleToken;
-  simpleRandomGenerator: SimpleRandomGenerator;
-  fakeRandomGenerator: FakeContract<SimpleRandomGenerator>;
+  simpleRandomNumberGenerator: SimpleRandomNumberGenerator;
+  fakeRandomNumberGenerator: FakeContract<SimpleRandomNumberGenerator>;
   survivalGame: SurvivalGame;
   survivalGameWithFake: SurvivalGame;
   signatureFn: (signer: Signer, msg?: string) => Promise<string>;
@@ -41,45 +41,42 @@ export async function survivalGameUnitTestFigture(): Promise<ISurvivalGameUnitTe
 
   // mint fee token for testing purpose
   await fee.mint(await operator.getAddress(), ethers.utils.parseEther("888888888"));
-  await fee.mint(await alice.getAddress(), ethers.utils.parseEther("888888888"));
-  await fee.mint(await bob.getAddress(), ethers.utils.parseEther("888888888"));
 
-  const SimpleRandomGenerator = (await ethers.getContractFactory(
-    "SimpleRandomGenerator",
+  const SimpleRandomNumberGenerator = (await ethers.getContractFactory(
+    "SimpleRandomNumberGenerator",
     deployer
-  )) as SimpleRandomGenerator__factory;
-  // Deploy simpleRandomGenerator
-  const simpleRandomGenerator = await SimpleRandomGenerator.deploy(
+  )) as SimpleRandomNumberGenerator__factory;
+  // Deploy SimpleRandomNumberGenerator
+  const simpleRandomNumberGenerator = await SimpleRandomNumberGenerator.deploy(
     fee.address,
-    [],
     ethers.utils.formatBytes32String("keyHash"),
     RAND_FEE_AMOUNT
   );
-  // Deploy fakeRandomGenerator
-  const fakeRandomGenerator = await smock.fake<SimpleRandomGenerator>(SimpleRandomGenerator);
+  // Deploy fakeRandomNumberGenerator
+  const fakeRandomNumberGenerator = await smock.fake<SimpleRandomNumberGenerator>(SimpleRandomNumberGenerator);
 
   // fixed mock return
-  fakeRandomGenerator.feeToken.returns(fee.address);
-  fakeRandomGenerator.feeAmount.returns(RAND_FEE_AMOUNT);
+  fakeRandomNumberGenerator.feeToken.returns(fee.address);
+  fakeRandomNumberGenerator.feeAmount.returns(RAND_FEE_AMOUNT);
 
   const SurvivalGame = (await ethers.getContractFactory("SurvivalGame", deployer)) as SurvivalGame__factory;
   // Deploy SurvivalGame
   const survivalGame = (await upgrades.deployProxy(SurvivalGame, [
     latte.address,
-    simpleRandomGenerator.address,
+    simpleRandomNumberGenerator.address,
     OPER_COOLDOWN_TS,
   ])) as SurvivalGame;
   await survivalGame.deployed();
   // Deploy SurvivalGameWithFake
   const survivalGameWithFake = (await upgrades.deployProxy(SurvivalGame, [
     latte.address,
-    fakeRandomGenerator.address,
+    fakeRandomNumberGenerator.address,
     OPER_COOLDOWN_TS,
   ])) as SurvivalGame;
   await survivalGame.deployed();
 
-  // allow survivalGame to be consumer of simpleRandomGenerator
-  await simpleRandomGenerator.setAllowance(survivalGame.address, true);
+  // allow survivalGame to be consumer of SimpleRandomNumberGenerator
+  await simpleRandomNumberGenerator.setAllowance(survivalGame.address, true);
 
   // set operator role to operator
   await survivalGame.grantRole(await survivalGame.OPERATOR_ROLE(), operator.address);
@@ -87,8 +84,8 @@ export async function survivalGameUnitTestFigture(): Promise<ISurvivalGameUnitTe
 
   // approve spend fee
   const feeAsOperator = SimpleToken__factory.connect(fee.address, operator);
-  await feeAsOperator.approve(survivalGame.address, ethers.utils.parseEther("888888888"));
-  await feeAsOperator.approve(survivalGameWithFake.address, ethers.utils.parseEther("888888888"));
+  await feeAsOperator.approve(survivalGame.address, constants.MaxUint256);
+  await feeAsOperator.approve(survivalGameWithFake.address, constants.MaxUint256);
 
   const signatureFn = async (signer: Signer, msg = "I am an EOA"): Promise<string> => {
     return await signer.signMessage(ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(msg))));
@@ -97,8 +94,8 @@ export async function survivalGameUnitTestFigture(): Promise<ISurvivalGameUnitTe
   return {
     latte,
     fee,
-    simpleRandomGenerator,
-    fakeRandomGenerator,
+    simpleRandomNumberGenerator,
+    fakeRandomNumberGenerator,
     survivalGame,
     survivalGameWithFake,
     signatureFn,

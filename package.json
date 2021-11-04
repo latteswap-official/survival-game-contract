@@ -13,7 +13,9 @@
     "mainnet": "hardhat console --network mainnet",
     "testnet": "hardhat console --network testnet",
     "test:case": "mocha --timeout 500000 --require hardhat/register --file tests/**/* --extension ts -g",
-    "prepublishOnly": "yarn compile && yarn build"
+    "prepublishOnly": "yarn compile && yarn build",
+
+    "test:unit:survivalGame": "hardhat test --no-compile ./tests/unit/SurvivalGame.test.ts"
   },
   "version": "1.0.0-rc.0",
   "main": "index.js",

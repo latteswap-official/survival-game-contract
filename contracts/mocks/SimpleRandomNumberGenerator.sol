@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "../interfaces/IRandomNumberGenerator.sol";
 import "../interfaces/IRandomNumberConsumer.sol";
 
-contract SimpleRandomGenerator is IRandomNumberGenerator, Ownable {
+contract SimpleRandomNumberGenerator is IRandomNumberGenerator, Ownable {
   bytes32 internal keyHash;
   address internal linkToken;
   uint256 internal fee;
@@ -18,20 +18,16 @@ contract SimpleRandomGenerator is IRandomNumberGenerator, Ownable {
 
   constructor(
     address _linkToken,
-    address[] memory _consumers,
     bytes32 _keyHash,
     uint256 _fee
   ) public {
     linkToken = _linkToken;
     keyHash = _keyHash;
     fee = _fee;
-    for (uint256 i; i < _consumers.length; ++i) {
-      consumers[_consumers[i]] = true;
-    }
   }
 
   modifier onlyConsumer() {
-    require(consumers[msg.sender], "SimpleRandomGenerator::Only survivalGame can call function");
+    require(consumers[msg.sender], "SimpleRandomNumberGenerator::Only survivalGame can call function");
     _;
   }
 
@@ -48,10 +44,10 @@ contract SimpleRandomGenerator is IRandomNumberGenerator, Ownable {
   }
 
   function randomNumber() public override onlyConsumer returns (bytes32 requestId) {
-    require(keyHash != bytes32(0), "SimpleRandomGenerator::getRandomNumber::Must have valid key hash");
+    require(keyHash != bytes32(0), "SimpleRandomNumberGenerator::getRandomNumber::Must have valid key hash");
     require(
       IERC20(linkToken).balanceOf(address(this)) >= fee,
-      "SimpleRandomGenerator::getRandomNumber::Not enough LINK"
+      "SimpleRandomNumberGenerator::getRandomNumber::Not enough LINK"
     );
     requestId = keccak256(abi.encodePacked(keyHash, block.timestamp));
     requesters[requestId] = msg.sender;

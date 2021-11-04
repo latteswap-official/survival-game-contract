@@ -37,21 +37,24 @@ module.exports = {
     },
     testnet: {
       url: "https://data-seed-prebsc-1-s3.binance.org:8545",
-      accounts: [process.env.BSC_TESTNET_PRIVATE_KEY],
+      accounts: [process.env.BSC_TESTNET_PRIVATE_KEY, process.env.BSC_TESTNET_OPERATOR_PRIVATE_KEY],
     },
     mainnet: {
       url: process.env.BSC_MAINNET_RPC,
-      accounts: [process.env.BSC_MAINNET_PRIVATE_KEY],
+      accounts: [process.env.BSC_MAINNET_PRIVATE_KEY, process.env.BSC_MAINNET_OPERATOR_PRIVATE_KEY],
     },
     mainnetfork: {
       url: "http://127.0.0.1:8545",
-      accounts: [process.env.BSC_MAINNET_PRIVATE_KEY],
+      accounts: [process.env.BSC_MAINNET_PRIVATE_KEY, process.env.BSC_MAINNET_OPERATOR_PRIVATE_KEY],
       timeout: 500000,
     },
   },
   namedAccounts: {
     deployer: {
       default: 0,
+    },
+    operator: {
+      default: 1,
     },
   },
   solidity: {

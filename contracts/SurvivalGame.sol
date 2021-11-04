@@ -47,7 +47,7 @@ contract SurvivalGame is
 
   // Constants
   uint8 public constant MAX_ROUND = 6;
-  uint8 public constant MAX_BATCH_SIZE = 10;
+  uint256 public constant MAX_BUY_LIMIT = 1000;
   bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE"); // role for operator stuff
   address public constant DEAD_ADDR = 0x000000000000000000000000000000000000dEaD;
 
@@ -145,7 +145,7 @@ contract SurvivalGame is
   /// Modifier
   /// @dev only the one having a OPERATOR_ROLE can continue an execution
   modifier onlyOper() {
-    require(hasRole(OPERATOR_ROLE, _msgSender()), "SurvialGame::onlyOper::only OPERATOR role");
+    require(hasRole(OPERATOR_ROLE, _msgSender()), "SurvivalGame::onlyOper::only OPERATOR role");
     require(
       uint256(block.timestamp) - lastUpdatedBlock >= operatorCooldown,
       "SurvivalGame::onlyOper::OPERATOR should not proceed the game consecutively"
@@ -155,19 +155,19 @@ contract SurvivalGame is
 
   /// @dev only the entropy generator can continue an execution
   modifier onlyEntropyGenerator() {
-    require(msg.sender == address(entropyGenerator), "SurvialGame::onlyEntropyGenerator::only entropy generator");
+    require(msg.sender == address(entropyGenerator), "SurvivalGame::onlyEntropyGenerator::only entropy generator");
     _;
   }
 
   /// @dev only before game starting
   modifier onlyOpened() {
-    require(gameInfo[gameId].status == GameStatus.Opened, "SurvialGame::onlyOpened::only before game starting");
+    require(gameInfo[gameId].status == GameStatus.Opened, "SurvivalGame::onlyOpened::only before game starting");
     _;
   }
 
   /// @dev only after game started
   modifier onlyStarted() {
-    require(gameInfo[gameId].status == GameStatus.Started, "SurvialGame::onlyStarted::only after game started");
+    require(gameInfo[gameId].status == GameStatus.Started, "SurvivalGame::onlyStarted::only after game started");
     _;
   }
 
@@ -175,14 +175,14 @@ contract SurvivalGame is
   modifier onlyBeforeOpen() {
     require(
       gameInfo[gameId].status == GameStatus.Completed || gameInfo[gameId].status == GameStatus.NotStarted,
-      "SurvialGame::onlyBeforeOpen::only before game opened"
+      "SurvivalGame::onlyBeforeOpen::only before game opened"
     );
     _;
   }
 
   /// @dev only after game completed
   modifier onlyCompleted() {
-    require(gameInfo[gameId].status == GameStatus.Completed, "SurvialGame::onlyCompleted::only after game completed");
+    require(gameInfo[gameId].status == GameStatus.Completed, "SurvivalGame::onlyCompleted::only after game completed");
     _;
   }
 
@@ -279,10 +279,10 @@ contract SurvivalGame is
     }
   }
 
-  /// @dev force complete the game
-  function complete() external onlyOper onlyStarted {
-    _complete();
-  }
+  // /// @dev force complete the game
+  // function complete() external onlyOper onlyStarted {
+  //   _complete();
+  // }
 
   /// User's functions
   /// @dev buy players and give ownership to _to
@@ -290,7 +290,10 @@ contract SurvivalGame is
   /// @param _to - address of the player's master
   function buy(uint256 _size, address _to) external onlyOpened nonReentrant returns (uint256 _remainingPlayerCount) {
     require(_size != 0, "SurvivalGame::buy::size must be greater than zero");
-    //require(_size <= MAX_BATCH_SIZE, "SurvivalGame::buy::size must not exceed max batch size");
+    require(
+      userInfo[gameId][0][_to].remainingPlayerCount.add(_size) <= MAX_BUY_LIMIT,
+      "SurvivalGame::buy::size must not exceed max buy limit"
+    );
     uint256 _totalPrice;
     uint256 _totalLatteBurn;
     {
@@ -315,7 +318,6 @@ contract SurvivalGame is
     uint8 _lastRoundNumber = _roundNumber.sub(1);
     uint256 _remainingPlayerCount = userInfo[gameId][_lastRoundNumber][msg.sender].remainingPlayerCount;
     require(_remainingPlayerCount != 0, "SurvivalGame::checkBatch::no players to be checked");
-    //require(_remainingPlayerCount <= MAX_BATCH_SIZE, "SurvivalGame::checkBatch::players exceed max batch size");
 
     RoundInfo memory _roundInfo = roundInfo[gameId][_roundNumber];
     uint256 _entropy = _roundInfo.entropy;
@@ -398,8 +400,7 @@ contract SurvivalGame is
     IERC20Upgradeable feeToken = IERC20Upgradeable(entropyGenerator.feeToken());
     uint256 _feeAmount = entropyGenerator.feeAmount();
     feeToken.safeTransferFrom(msg.sender, address(entropyGenerator), _feeAmount);
-    bytes32 _test = entropyGenerator.randomNumber();
-    roundInfo[gameId][_nextRoundNumber].requestId = _test;
+    roundInfo[gameId][_nextRoundNumber].requestId = entropyGenerator.randomNumber();
 
     emit LogRequestRandomNumber(gameId, _nextRoundNumber, roundInfo[gameId][_nextRoundNumber].requestId);
   }
