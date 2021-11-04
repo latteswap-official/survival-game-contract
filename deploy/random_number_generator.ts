@@ -1,8 +1,16 @@
+import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
 import { DeployFunction } from "hardhat-deploy/dist/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { RandomNumberGenerator__factory } from "../typechain";
-import { getConfig, withNetworkFile, IChainLinkVRF } from "../utils";
+import { getConfig, withNetworkFile } from "../utils";
+
+export interface IChainLinkVRF {
+  COORDINATOR_ADDRESS: string;
+  LINK_TOKEN_ADDRESS: string;
+  KEY_HASH: string;
+  FEE: BigNumber;
+}
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   /*

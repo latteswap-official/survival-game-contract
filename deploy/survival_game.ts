@@ -24,7 +24,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const [deployer, operator] = await ethers.getSigners();
 
   const OPERATOR_ADDRESS = await operator.getAddress();
-  const OPER_COOLDOWN_TS = 60 * 60 * 1000; // 1 hr
+  const OPER_COOLDOWN_TS = 30 * 60 * 1000; // 30 mins
 
   await withNetworkFile(async () => {
     const randomNumberGenerator = RandomNumberGenerator__factory.connect(config.RandomNumberGenerator, deployer);
