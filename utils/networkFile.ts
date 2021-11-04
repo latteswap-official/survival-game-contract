@@ -25,6 +25,7 @@ export async function updateNetworkFile(): Promise<void> {
     const chainId = (await ethers.provider.getNetwork()).chainId;
     const srcFile = `${__dirname}/../.openzeppelin/unknown-${chainId}.json`;
     const destFile = `${__dirname}/../.openzeppelin/${process.env.DEPLOYMENT_ENV}-unknown-${chainId}.json`;
+    if (!fs.existsSync(srcFile)) return;
     fs.renameSync(srcFile, destFile);
     console.log(`✅ successfully rename back to a file ${destFile}`);
   } catch (err) {
