@@ -16,6 +16,7 @@ import "./interfaces/IRandomNumberConsumer.sol";
 
 contract RandomNumberGenerator is IRandomNumberGenerator, VRFConsumerBase, Ownable {
   bytes32 internal keyHash;
+  address internal linkToken;
   uint256 internal fee;
   mapping(bytes32 => address) internal requesters;
   mapping(bytes32 => uint256) public randomResults;
@@ -29,15 +30,20 @@ contract RandomNumberGenerator is IRandomNumberGenerator, VRFConsumerBase, Ownab
   constructor(
     address _vrfCoordinator,
     address _linkToken,
-    address[] memory _consumers,
     bytes32 _keyHash,
     uint256 _fee
   ) public VRFConsumerBase(_vrfCoordinator, _linkToken) {
+    linkToken = _linkToken;
     keyHash = _keyHash;
     fee = _fee;
-    for (uint256 i; i < _consumers.length; ++i) {
-      consumers[_consumers[i]] = true;
-    }
+  }
+
+  function feeAmount() public view override onlyConsumer returns (uint256 _fee) {
+    _fee = fee;
+  }
+
+  function feeToken() public view override onlyConsumer returns (address _linkToken) {
+    _linkToken = linkToken;
   }
 
   function setAllowance(address _consumer, bool _allowance) external onlyOwner {

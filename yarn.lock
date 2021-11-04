@@ -35,6 +35,18 @@
   resolved "https://registry.yarnpkg.com/@chainlink/contracts/-/contracts-0.2.2.tgz#8ea2079d8b22d25807fc63b98ccd3dc0bc2a33fe"
   integrity sha512-wxXPbt7O3aZaUSG34ufFASC5amRSL6eeYCqsa+2gpqbB8Hk7B7FydEDCI5dqvAC444TlFskPHcVbizCZkRHPpw==
 
+"@defi-wonderland/smock@^2.0.7":
+  version "2.0.7"
+  resolved "https://registry.yarnpkg.com/@defi-wonderland/smock/-/smock-2.0.7.tgz#59d5fc93e175ad120c5dcdd8294e07525606c855"
+  integrity sha512-RVpODLKZ/Cr0C1bCbhJ2aXbAr2Ll/K2WO7hDL96tqhMzCsA7ToWdDIgiNpV5Vtqqvpftu5ddO7v3TAurQNSU0w==
+  dependencies:
+    "@nomiclabs/ethereumjs-vm" "^4.2.2"
+    diff "^5.0.0"
+    lodash.isequal "^4.5.0"
+    lodash.isequalwith "^4.4.0"
+    rxjs "^7.2.0"
+    semver "^7.3.5"
+
 "@ensdomains/ens@^0.4.4":
   version "0.4.5"
   resolved "https://registry.yarnpkg.com/@ensdomains/ens/-/ens-0.4.5.tgz#e0aebc005afdc066447c6e22feb4eda89a5edbfc"
@@ -65,23 +77,6 @@
     js-yaml "^3.13.1"
     minimatch "^3.0.4"
     strip-json-comments "^3.1.1"
-
-"@eth-optimism/core-utils@^0.5.1":
-  version "0.5.5"
-  resolved "https://registry.yarnpkg.com/@eth-optimism/core-utils/-/core-utils-0.5.5.tgz#0e2bb95b23965fb51adfb8ba6841c3afd26a6411"
-  integrity sha512-N/uyZjHltnvnQyBOE498EGlqeYvWRUQTW6BpXhexKljEXZpnria4J4MFO9s1lJOpogLXTaS+lhM1Ic8zUNj8Pg==
-  dependencies:
-    "@ethersproject/abstract-provider" "^5.4.1"
-    ethers "^5.4.5"
-    lodash "^4.17.21"
-
-"@eth-optimism/smock@^1.1.10":
-  version "1.1.10"
-  resolved "https://registry.yarnpkg.com/@eth-optimism/smock/-/smock-1.1.10.tgz#98a6eefc994ccf707f52ab06849468f3cc57bdb7"
-  integrity sha512-XPx1x9odF/noTBHzIhRgL9ihhr769WgUhf9dOm6X7bjSWRAVsII3IqbdB4ssPycaoSuNSmv8HG1xTLgfgcyOYw==
-  dependencies:
-    "@eth-optimism/core-utils" "^0.5.1"
-    bn.js "^5.2.0"
 
 "@ethereum-waffle/chai@^3.4.0":
   version "3.4.1"
@@ -237,7 +232,7 @@
     "@ethersproject/properties" "^5.5.0"
     "@ethersproject/strings" "^5.5.0"
 
-"@ethersproject/abstract-provider@5.5.1", "@ethersproject/abstract-provider@^5.4.1", "@ethersproject/abstract-provider@^5.5.0":
+"@ethersproject/abstract-provider@5.5.1", "@ethersproject/abstract-provider@^5.5.0":
   version "5.5.1"
   resolved "https://registry.yarnpkg.com/@ethersproject/abstract-provider/-/abstract-provider-5.5.1.tgz#2f1f6e8a3ab7d378d8ad0b5718460f85649710c5"
   integrity sha512-m+MA/ful6eKbxpr99xUYeRvLkfnlqzrF8SZ46d/xFB1A7ZVknYc/sXJG0RcufF52Qn2jeFj1hhcoQ7IXjNKUqg==
@@ -576,10 +571,10 @@
   resolved "https://registry.yarnpkg.com/@humanwhocodes/object-schema/-/object-schema-1.2.0.tgz#87de7af9c231826fdd68ac7258f77c429e0e5fcf"
   integrity sha512-wdppn25U8z/2yiaT6YGquE6X8sSv7hNMWSXYSSU1jGv/yd6XqjXgTDJ8KP4NgjTXfJ3GbRjeeb8RTV7a/VpM+w==
 
-"@latteswap/latteswap-contract-config@^1.2.0":
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/@latteswap/latteswap-contract-config/-/latteswap-contract-config-1.2.0.tgz#3d295e3f98f5544bc88e68024bd129b9790a5d91"
-  integrity sha512-glcog/6VTIN/IO2AXotqEvUwamM1n86WbN2njwZHxnCA52dGdeHYhpI/OGbJHHCEhscMZEG5TfZyLjFKLcF4Tg==
+"@latteswap/latteswap-contract-config@^1.5.0-rc.0":
+  version "1.5.0-rc.0"
+  resolved "https://registry.yarnpkg.com/@latteswap/latteswap-contract-config/-/latteswap-contract-config-1.5.0-rc.0.tgz#e9fed054333793be3781b96bcc4e2a79fea55166"
+  integrity sha512-l5DI5BO7owKEpfHQwmClnMbngd6OrG75LdEkZOuJBSViVp0dKL2mWvd2+mxFKBSv5uWlGc+OXzCY8Ce/HY/cwg==
 
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
@@ -2965,6 +2960,11 @@ diff@^4.0.1:
   resolved "https://registry.yarnpkg.com/diff/-/diff-4.0.2.tgz#60f3aecb89d5fae520c11aa19efc2bb982aade7d"
   integrity sha512-58lmxKSA4BNyLz+HHMUzlOEpg09FV+ev6ZMe3vJihgdxzgcwZ8VoEEPmALCZG9LmqfVoNMMKpttIYTVG6uDY7A==
 
+diff@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/diff/-/diff-5.0.0.tgz#7ed6ad76d859d030787ec35855f5b1daf31d852b"
+  integrity sha512-/VTCrvm5Z0JGty/BWHljh+BAiw3IK+2j87NGMu8Nwc/f48WoDAC395uomO9ZD117ZOBaHmkX1oyLvkVM/aIT3w==
+
 diffie-hellman@^5.0.0:
   version "5.0.3"
   resolved "https://registry.yarnpkg.com/diffie-hellman/-/diffie-hellman-5.0.3.tgz#40e8ee98f55a2149607146921c63e1ae5f3d2875"
@@ -3797,7 +3797,7 @@ ethereumjs-wallet@0.6.5:
     utf8 "^3.0.0"
     uuid "^3.3.2"
 
-ethers@^5.0.1, ethers@^5.0.2, ethers@^5.0.31, ethers@^5.4.5, ethers@^5.4.7:
+ethers@^5.0.1, ethers@^5.0.2, ethers@^5.0.31, ethers@^5.4.7:
   version "5.5.1"
   resolved "https://registry.yarnpkg.com/ethers/-/ethers-5.5.1.tgz#d3259a95a42557844aa543906c537106c0406fbf"
   integrity sha512-RodEvUFZI+EmFcE6bwkuJqpCYHazdzeR1nMzg+YWQSmQEsNtfl1KHGfp/FWZYl48bI/g7cgBeP2IlPthjiVngw==
@@ -5800,6 +5800,16 @@ lodash.clonedeep@^4.5.0:
   resolved "https://registry.yarnpkg.com/lodash.clonedeep/-/lodash.clonedeep-4.5.0.tgz#e23f3f9c4f8fbdde872529c1071857a086e5ccef"
   integrity sha1-4j8/nE+Pvd6HJSnBBxhXoIblzO8=
 
+lodash.isequal@^4.5.0:
+  version "4.5.0"
+  resolved "https://registry.yarnpkg.com/lodash.isequal/-/lodash.isequal-4.5.0.tgz#415c4478f2bcc30120c22ce10ed3226f7d3e18e0"
+  integrity sha1-QVxEePK8wwEgwizhDtMib30+GOA=
+
+lodash.isequalwith@^4.4.0:
+  version "4.4.0"
+  resolved "https://registry.yarnpkg.com/lodash.isequalwith/-/lodash.isequalwith-4.4.0.tgz#266726ddd528f854f21f4ea98a065606e0fbc6b0"
+  integrity sha1-Jmcm3dUo+FTyH06pigZWBuD7xrA=
+
 lodash.merge@^4.6.2:
   version "4.6.2"
   resolved "https://registry.yarnpkg.com/lodash.merge/-/lodash.merge-4.6.2.tgz#558aa53b43b661e1925a0afdfa36a9a1085fe57a"
@@ -5815,7 +5825,7 @@ lodash@4.17.20:
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.20.tgz#b44a9b6297bcb698f1c51a3545a2b3b368d59c52"
   integrity sha512-PlhdFcillOINfeV7Ni6oF1TAEayyZBoZ8bcshTHqOYJYlrqzRK5hagpagky5o4HfCzzd1TRkXPMFq6cKk9rGmA==
 
-lodash@^4.17.11, lodash@^4.17.12, lodash@^4.17.14, lodash@^4.17.15, lodash@^4.17.21, lodash@^4.17.4:
+lodash@^4.17.11, lodash@^4.17.12, lodash@^4.17.14, lodash@^4.17.15, lodash@^4.17.4:
   version "4.17.21"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz#679591c564c3bffaae8454cf0b3df370c3d6911c"
   integrity sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==
@@ -7437,6 +7447,13 @@ rxjs@^6.4.0:
   dependencies:
     tslib "^1.9.0"
 
+rxjs@^7.2.0:
+  version "7.4.0"
+  resolved "https://registry.yarnpkg.com/rxjs/-/rxjs-7.4.0.tgz#a12a44d7eebf016f5ff2441b87f28c9a51cebc68"
+  integrity sha512-7SQDi7xeTMCJpqViXh8gL/lebcwlp3d831F05+9B44A4B0WfsEwUQHR64gsH1kvJ+Ep/J9K2+n1hVl1CsGN23w==
+  dependencies:
+    tslib "~2.1.0"
+
 safe-buffer@5.1.2, safe-buffer@~5.1.0, safe-buffer@~5.1.1:
   version "5.1.2"
   resolved "https://registry.yarnpkg.com/safe-buffer/-/safe-buffer-5.1.2.tgz#991ec69d296e0313747d59bdfd2b745c35f8828d"
@@ -8327,6 +8344,11 @@ tslib@^1.8.1, tslib@^1.9.0, tslib@^1.9.3:
   version "1.14.1"
   resolved "https://registry.yarnpkg.com/tslib/-/tslib-1.14.1.tgz#cf2d38bdc34a134bcaf1091c41f6619e2f672d00"
   integrity sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg==
+
+tslib@~2.1.0:
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/tslib/-/tslib-2.1.0.tgz#da60860f1c2ecaa5703ab7d39bc05b6bf988b97a"
+  integrity sha512-hcVC3wYEziELGGmEEXue7D75zbwIIVUMWAVbHItGPx0ziyXxrOMQx4rQEVEV45Ut/1IotuEvwqPopzIOkDMf0A==
 
 tsort@0.0.1:
   version "0.0.1"

@@ -13,16 +13,20 @@
     "mainnet": "hardhat console --network mainnet",
     "testnet": "hardhat console --network testnet",
     "test:case": "mocha --timeout 500000 --require hardhat/register --file tests/**/* --extension ts -g",
-    "prepublishOnly": "yarn compile && yarn build"
+    "prepublishOnly": "yarn compile && yarn build",
+
+    "test:unit:survivalGame": "hardhat test --no-compile ./tests/unit/SurvivalGame.test.ts",
+
+    "deploy:mainnet:survivalGame": "hardhat --network mainnet deploy --no-compile --reset --tags DeploySurvivalGame"
   },
   "version": "1.0.0-rc.1",
   "main": "index.js",
   "license": "GPL-3.0",
   "devDependencies": {
     "@chainlink/contracts": "^0.2.2",
-    "@eth-optimism/smock": "^1.1.10",
+    "@defi-wonderland/smock": "^2.0.7",
     "@ethersproject/bignumber": "^5.0.14",
-    "@latteswap/latteswap-contract-config": "^1.2.0",
+    "@latteswap/latteswap-contract-config": "^1.5.0-rc.0",
     "@nomiclabs/ethereumjs-vm": "^4.2.2",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-etherscan": "^2.1.1",
