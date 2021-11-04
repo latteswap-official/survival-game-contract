@@ -42,7 +42,6 @@ contract SurvivalGame is
 
   uint256 public gameId;
   uint256 internal nonce;
-  // uint256 public prizePoolInLatte;
   uint256 public lastUpdatedBlock;
 
   // Constants
@@ -134,7 +133,6 @@ contract SurvivalGame is
 
     gameId = 0;
     nonce = 0;
-    // prizePoolInLatte = 0;
     lastUpdatedBlock = 0;
 
     // create and assign default roles
