@@ -16,12 +16,12 @@ export interface ISurvivalGameUnitTestFixtureDTO {
   simpleRandomNumberGenerator: SimpleRandomNumberGenerator;
   fakeRandomNumberGenerator: FakeContract<SimpleRandomNumberGenerator>;
   survivalGame: SurvivalGame;
+  survivalGameWithCooldown: SurvivalGame;
   survivalGameWithFake: SurvivalGame;
   signatureFn: (signer: Signer, msg?: string) => Promise<string>;
 }
 
 export async function survivalGameUnitTestFigture(): Promise<ISurvivalGameUnitTestFixtureDTO> {
-  const OPER_COOLDOWN_TS = 0;
   const RAND_FEE_AMOUNT = ethers.utils.parseEther("1");
   const [deployer, alice, bob, operator] = await ethers.getSigners();
 
@@ -64,16 +64,23 @@ export async function survivalGameUnitTestFigture(): Promise<ISurvivalGameUnitTe
   const survivalGame = (await upgrades.deployProxy(SurvivalGame, [
     latte.address,
     simpleRandomNumberGenerator.address,
-    OPER_COOLDOWN_TS,
+    0,
   ])) as SurvivalGame;
   await survivalGame.deployed();
+  // Deploy SurvivalGameWithCoolDown
+  const survivalGameWithCooldown = (await upgrades.deployProxy(SurvivalGame, [
+    latte.address,
+    simpleRandomNumberGenerator.address,
+    10,
+  ])) as SurvivalGame;
+  await survivalGameWithCooldown.deployed();
   // Deploy SurvivalGameWithFake
   const survivalGameWithFake = (await upgrades.deployProxy(SurvivalGame, [
     latte.address,
     fakeRandomNumberGenerator.address,
-    OPER_COOLDOWN_TS,
+    0,
   ])) as SurvivalGame;
-  await survivalGame.deployed();
+  await survivalGameWithFake.deployed();
 
   // allow survivalGame to be consumer of SimpleRandomNumberGenerator
   await simpleRandomNumberGenerator.setAllowance(survivalGame.address, true);
@@ -97,6 +104,7 @@ export async function survivalGameUnitTestFigture(): Promise<ISurvivalGameUnitTe
     simpleRandomNumberGenerator,
     fakeRandomNumberGenerator,
     survivalGame,
+    survivalGameWithCooldown,
     survivalGameWithFake,
     signatureFn,
   } as ISurvivalGameUnitTestFixtureDTO;

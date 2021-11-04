@@ -259,14 +259,14 @@ contract SurvivalGame is
       roundInfo[gameId][i] = _roundInfo;
       emit LogCreateRound(gameId, i, _prizeDistributions[i - 1], _survivalsBps[i - 1]);
     }
-    lastUpdatedBlock = block.number;
+    lastUpdatedBlock = block.timestamp;
   }
 
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {
     gameInfo[gameId].status = GameStatus.Processing;
     _requestRandomNumber();
-    lastUpdatedBlock = block.number;
+    lastUpdatedBlock = block.timestamp;
     emit LogSetGameStatus(gameId, "Processing");
   }
 
@@ -431,7 +431,7 @@ contract SurvivalGame is
     gameInfo[gameId].status = GameStatus.Started;
     emit LogSetGameStatus(gameId, "Started");
 
-    lastUpdatedBlock = block.number;
+    lastUpdatedBlock = block.timestamp;
   }
 
   function _complete() internal {
@@ -448,6 +448,6 @@ contract SurvivalGame is
     gameInfo[gameId].status = GameStatus.Completed;
     emit LogSetGameStatus(gameId, "Completed");
 
-    lastUpdatedBlock = block.number;
+    lastUpdatedBlock = block.timestamp;
   }
 }
