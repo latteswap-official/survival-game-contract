@@ -334,13 +334,14 @@ contract SurvivalGame is
     {
       _survivorCount = 0;
       for (uint256 i = 0; i < _remainingPlayerCount; ++i) {
-        bytes memory _data = abi.encodePacked(_entropy, address(this), msg.sender, ++nonce);
+        bytes memory _data = abi.encodePacked(_entropy, address(this), msg.sender, nonce + i + 1);
         // eliminated if hash value mod 10000 more than the survive bps
         bool _survived = _survivalBps > (uint256(keccak256(_data)) % 1e4);
         if (_survived) {
           ++_survivorCount;
         }
       }
+      nonce += _remainingPlayerCount;
       userInfo[gameId][_roundNumber][msg.sender].remainingPlayerCount = _survivorCount;
       userInfo[gameId][_roundNumber][msg.sender].remainingVoteCount = _survivorCount;
       roundInfo[gameId][_roundNumber].survivorCount = roundInfo[gameId][_roundNumber].survivorCount.add(_survivorCount);
