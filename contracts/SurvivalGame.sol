@@ -37,12 +37,12 @@ contract SurvivalGame is
   IERC20Upgradeable public latte;
   // Instance of the random number generator
   IRandomNumberGenerator public entropyGenerator;
-  // Minimum required blocks before operator can execute function again
+  // Minimum required timstamp in seconds before operator can execute function again
   uint256 public operatorCooldown;
 
   uint256 public gameId;
   uint256 internal nonce;
-  uint256 public lastUpdatedBlock;
+  uint256 public lastUpdatedTimestamp;
 
   // Constants
   uint8 public constant MAX_ROUND = 6;
@@ -146,21 +146,17 @@ contract SurvivalGame is
     entropyGenerator = IRandomNumberGenerator(_entropyGenerator);
     operatorCooldown = _operatorCooldown;
 
-    gameId = 0;
-    nonce = 0;
-    lastUpdatedBlock = 0;
-
     // create and assign default roles
-    _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-    _setupRole(OPERATOR_ROLE, _msgSender());
+    _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    _setupRole(OPERATOR_ROLE, msg.sender);
   }
 
   /// Modifier
   /// @dev only the one having a OPERATOR_ROLE can continue an execution
   modifier onlyOper() {
-    require(hasRole(OPERATOR_ROLE, _msgSender()), "SurvivalGame::onlyOper::only OPERATOR role");
+    require(hasRole(OPERATOR_ROLE, msg.sender), "SurvivalGame::onlyOper::only OPERATOR role");
     require(
-      uint256(block.timestamp) - lastUpdatedBlock >= operatorCooldown,
+      uint256(block.timestamp) - lastUpdatedTimestamp >= operatorCooldown,
       "SurvivalGame::onlyOper::OPERATOR should not proceed the game consecutively"
     );
     _;
@@ -259,14 +255,13 @@ contract SurvivalGame is
       roundInfo[gameId][i] = _roundInfo;
       emit LogCreateRound(gameId, i, _prizeDistributions[i - 1], _survivalsBps[i - 1]);
     }
-    lastUpdatedBlock = block.timestamp;
+    lastUpdatedTimestamp = block.timestamp;
   }
 
   /// @dev close registration and start round 1
   function start() external onlyOper onlyOpened {
     gameInfo[gameId].status = GameStatus.Processing;
     _requestRandomNumber();
-    lastUpdatedBlock = block.timestamp;
     emit LogSetGameStatus(gameId, "Processing");
   }
 
@@ -340,7 +335,7 @@ contract SurvivalGame is
       _survivorCount = 0;
       for (uint256 i = 0; i < _remainingPlayerCount; ++i) {
         bytes memory _data = abi.encodePacked(_entropy, address(this), msg.sender, ++nonce);
-        // eliminated if hash value mod 100 more than the survive percent
+        // eliminated if hash value mod 10000 more than the survive bps
         bool _survived = _survivalBps > (uint256(keccak256(_data)) % 1e4);
         if (_survived) {
           ++_survivorCount;
@@ -431,7 +426,7 @@ contract SurvivalGame is
     gameInfo[gameId].status = GameStatus.Started;
     emit LogSetGameStatus(gameId, "Started");
 
-    lastUpdatedBlock = block.timestamp;
+    lastUpdatedTimestamp = block.timestamp;
   }
 
   function _complete() internal {
@@ -448,6 +443,6 @@ contract SurvivalGame is
     gameInfo[gameId].status = GameStatus.Completed;
     emit LogSetGameStatus(gameId, "Completed");
 
-    lastUpdatedBlock = block.timestamp;
+    lastUpdatedTimestamp = block.timestamp;
   }
 }
