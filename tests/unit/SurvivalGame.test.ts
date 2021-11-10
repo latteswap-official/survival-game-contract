@@ -489,7 +489,7 @@ describe("SurvivalGame", () => {
 
         it("should emit LogSetFinalPrizePerPlayer, and LogSetGameStatus", async () => {
           const roundInfo = await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber);
-          const finalPrizePerPlayer = (await survivalGame.prizePoolInLatte())
+          const finalPrizePerPlayer = (await survivalGame.gameInfo(gameId)).maxPrizePool
             .mul(roundInfo.prizeDistribution)
             .div(10000)
             .div(20); // alice + bob max batch each
@@ -503,7 +503,7 @@ describe("SurvivalGame", () => {
 
         it("should set game status to Completed and set finalPrizePerplayer in gameInfo", async () => {
           const roundInfo = await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber);
-          const finalPrizePerPlayer = (await survivalGame.prizePoolInLatte())
+          const finalPrizePerPlayer = (await survivalGame.gameInfo(gameId)).maxPrizePool
             .mul(roundInfo.prizeDistribution)
             .div(10000)
             .div(20); // alice + bob max batch each

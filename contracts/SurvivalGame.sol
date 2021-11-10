@@ -63,6 +63,7 @@ contract SurvivalGame is
   struct GameInfo {
     GameStatus status;
     uint8 roundNumber;
+    uint256 maxPrizePool;
     uint256 finalPrizePerPlayer;
     uint256 costPerTicket;
     uint256 burnBps;
@@ -199,6 +200,7 @@ contract SurvivalGame is
     gameInfo[gameId] = GameInfo({
       status: GameStatus.Opened,
       roundNumber: 0,
+      maxPrizePool: 0,
       finalPrizePerPlayer: 0,
       totalPlayer: 0,
       costPerTicket: _costPerTicket,
@@ -238,6 +240,7 @@ contract SurvivalGame is
   function start() external onlyOper {
     _isGameStatus(GameStatus.Opened, gameInfo[gameId].status);
     gameInfo[gameId].status = GameStatus.Processing;
+    gameInfo[gameId].maxPrizePool = prizePoolInLatte();
     _requestRandomNumber();
     emit LogSetGameStatus(gameId, "Processing");
   }
@@ -449,8 +452,7 @@ contract SurvivalGame is
     uint256 _gameId = gameId;
     uint8 _roundNumber = gameInfo[_gameId].roundNumber;
     RoundInfo memory _roundInfo = roundInfo[_gameId][_roundNumber];
-    uint256 _prizePool = prizePoolInLatte();
-    uint256 _finalPrizeInLatte = _prizePool.mul(_roundInfo.prizeDistribution).div(1e4);
+    uint256 _finalPrizeInLatte = gameInfo[_gameId].maxPrizePool.mul(_roundInfo.prizeDistribution).div(1e4);
     uint256 _survivorCount = _roundInfo.survivorCount;
     if (_survivorCount > 0) {
       gameInfo[_gameId].finalPrizePerPlayer = _finalPrizeInLatte.div(_survivorCount);
