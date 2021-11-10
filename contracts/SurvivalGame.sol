@@ -169,24 +169,10 @@ contract SurvivalGame is
     _;
   }
 
-  /// @dev only correct game status can continue operation
-  modifier isGameStatus(GameStatus _status) {
-    require(gameInfo[gameId].status == _status, "SurvivalGame::isGameStatus::wrong GameStatus to continue operation");
-    _;
-  }
-
-  /// @dev only correct game statuses can continue operation
-  modifier isGameStatuses(GameStatus _statusA, GameStatus _statusB) {
-    require(
-      gameInfo[gameId].status == _statusA || gameInfo[gameId].status == _statusB,
-      "SurvivalGame::isGameStatuses::wrong GameStatuses to continue operation"
-    );
-    _;
-  }
-
   /// Getter functions
-  function lastRoundSurvivors() external view isGameStatus(GameStatus.Started) returns (uint256 _amount) {
+  function lastRoundSurvivors() external view returns (uint256 _amount) {
     GameInfo memory _gameInfo = gameInfo[gameId];
+    _isGameStatus(GameStatus.Started, _gameInfo.status);
     if (_gameInfo.roundNumber == 1) {
       _amount = _gameInfo.totalPlayer;
     } else {
@@ -205,7 +191,8 @@ contract SurvivalGame is
     uint256 _burnBps,
     uint256[6] calldata _prizeDistributions,
     uint256[6] calldata _survivalsBps
-  ) external onlyOper isGameStatuses(GameStatus.Completed, GameStatus.NotStarted) {
+  ) external onlyOper {
+    _isGameStatuses(GameStatus.NotStarted, GameStatus.Completed, gameInfo[gameId].status);
     gameId = gameId.add(1);
     // Note: nonce is not reset
 
@@ -248,15 +235,17 @@ contract SurvivalGame is
   }
 
   /// @dev close registration and start round 1
-  function start() external onlyOper isGameStatus(GameStatus.Opened) {
+  function start() external onlyOper {
+    _isGameStatus(GameStatus.Opened, gameInfo[gameId].status);
     gameInfo[gameId].status = GameStatus.Processing;
     _requestRandomNumber();
     emit LogSetGameStatus(gameId, "Processing");
   }
 
   /// @dev sum up each round and either continue next round or complete the game
-  function processing() external onlyOper isGameStatus(GameStatus.Started) {
+  function processing() external onlyOper {
     uint256 _gameId = gameId;
+    _isGameStatus(GameStatus.Started, gameInfo[_gameId].status);
     uint8 _roundNumber = gameInfo[_gameId].roundNumber;
     if (
       roundInfo[_gameId][_roundNumber].stopVoteCount > roundInfo[_gameId][_roundNumber].continueVoteCount ||
@@ -274,7 +263,8 @@ contract SurvivalGame is
   }
 
   /// @dev retry processing game when did not receive the randomness from VRF
-  function retry() external onlyOper isGameStatus(GameStatus.Processing) {
+  function retry() external onlyOper {
+    _isGameStatus(GameStatus.Processing, gameInfo[gameId].status);
     _requestRandomNumber();
   }
 
@@ -293,14 +283,10 @@ contract SurvivalGame is
   /// @dev buy players and give ownership to _to
   /// @param _size - size of the batch
   /// @param _to - address of the player's master
-  function buy(uint256 _size, address _to)
-    external
-    isGameStatus(GameStatus.Opened)
-    nonReentrant
-    returns (uint256 _remainingPlayerCount)
-  {
-    require(_size != 0, "SurvivalGame::buy::size must be greater than zero");
+  function buy(uint256 _size, address _to) external nonReentrant returns (uint256 _remainingPlayerCount) {
     uint256 _gameId = gameId;
+    _isGameStatus(GameStatus.Opened, gameInfo[_gameId].status);
+    require(_size != 0, "SurvivalGame::buy::size must be greater than zero");
     require(
       userInfo[_gameId][0][_to].remainingPlayerCount.add(_size) <= MAX_BUY_LIMIT,
       "SurvivalGame::buy::size must not exceed max buy limit"
@@ -324,8 +310,9 @@ contract SurvivalGame is
   }
 
   /// @dev check if there are players left
-  function check() external isGameStatus(GameStatus.Started) nonReentrant returns (uint256 _survivorCount) {
+  function check() external nonReentrant returns (uint256 _survivorCount) {
     uint256 _gameId = gameId;
+    _isGameStatus(GameStatus.Started, gameInfo[_gameId].status);
     uint8 _roundNumber = gameInfo[_gameId].roundNumber;
     uint8 _lastRoundNumber = _roundNumber.sub(1);
     uint256 _remainingPlayerCount = userInfo[_gameId][_lastRoundNumber][msg.sender].remainingPlayerCount;
@@ -363,8 +350,9 @@ contract SurvivalGame is
     }
   }
 
-  function voteContinue() external isGameStatus(GameStatus.Started) nonReentrant {
+  function voteContinue() external nonReentrant {
     uint256 _gameId = gameId;
+    _isGameStatus(GameStatus.Started, gameInfo[_gameId].status);
     uint8 _roundNumber = gameInfo[_gameId].roundNumber;
     uint256 _voteCount = userInfo[_gameId][_roundNumber][msg.sender].remainingVoteCount;
     require(_voteCount > 0, "SurvivalGame::_vote::no remaining vote");
@@ -381,8 +369,9 @@ contract SurvivalGame is
     );
   }
 
-  function voteStop() external isGameStatus(GameStatus.Started) nonReentrant {
+  function voteStop() external nonReentrant {
     uint256 _gameId = gameId;
+    _isGameStatus(GameStatus.Started, gameInfo[_gameId].status);
     uint8 _roundNumber = gameInfo[_gameId].roundNumber;
     uint256 _voteCount = userInfo[_gameId][_roundNumber][msg.sender].remainingVoteCount;
     require(_voteCount > 0, "SurvivalGame::_vote::no remaining vote");
@@ -397,8 +386,9 @@ contract SurvivalGame is
     );
   }
 
-  function claim(address _to) external isGameStatus(GameStatus.Completed) nonReentrant {
+  function claim(address _to) external nonReentrant {
     uint256 _gameId = gameId;
+    _isGameStatus(GameStatus.Completed, gameInfo[_gameId].status);
     uint8 _roundNumber = gameInfo[_gameId].roundNumber;
     UserInfo memory _userInfo = userInfo[_gameId][_roundNumber][msg.sender];
     require(!_userInfo.claimed, "SurvivalGame::claim::rewards has been claimed");
@@ -411,6 +401,21 @@ contract SurvivalGame is
     latte.safeTransfer(_to, _pendingReward);
 
     emit LogClaimReward(_gameId, _to, _remainingPlayer, _pendingReward);
+  }
+
+  function _isGameStatus(GameStatus _expect, GameStatus _actual) internal pure {
+    require(_expect == _actual, "SurvivalGame::_isGameStatus::wrong GameStatus to proceed operation");
+  }
+
+  function _isGameStatuses(
+    GameStatus _expect0,
+    GameStatus _expect1,
+    GameStatus _actual
+  ) internal pure {
+    require(
+      _expect0 == _actual || _expect1 == _actual,
+      "SurvivalGame::_isGameStatuses::wrong GameStatus to proceed operation"
+    );
   }
 
   function _requestRandomNumber() internal {

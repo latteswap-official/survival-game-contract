@@ -148,7 +148,7 @@ describe("SurvivalGame", () => {
         await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
         await expect(
           survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps)
-        ).to.revertedWith("SurvivalGame::isGameStatuses::wrong GameStatuses to continue operation");
+        ).to.revertedWith("SurvivalGame::_isGameStatuses::wrong GameStatus to proceed operation");
       });
 
       it("should emit LogCreateGame, LogSetGameStatus, and LogCreateRound with MAX_ROUND times", async () => {
@@ -349,7 +349,7 @@ describe("SurvivalGame", () => {
 
       it("should revert if game status is not Started", async () => {
         await expect(survivalGameAsOperator.processing()).to.revertedWith(
-          "SurvivalGame::isGameStatus::wrong GameStatus to continue operation"
+          "SurvivalGame::_isGameStatus::wrong GameStatus to proceed operation"
         );
       });
     });
@@ -631,7 +631,7 @@ describe("SurvivalGame", () => {
         await survivalGameAsOperator.start();
 
         await expect(survivalGameAsAlice.buy(1, await alice.getAddress())).to.revertedWith(
-          "SurvivalGame::isGameStatus::wrong GameStatus to continue operation"
+          "SurvivalGame::_isGameStatus::wrong GameStatus to proceed operation"
         );
       });
     });
