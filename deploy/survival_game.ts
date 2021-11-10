@@ -48,6 +48,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     let tx = await survivalGame.grantRole(await survivalGame.OPERATOR_ROLE(), OPERATOR_ADDRESS, {
       gasLimit: estimateGas.add(100000),
     });
+    await tx.wait();
     console.log(`>> returned tx hash: ${tx.hash}`);
     console.log("✅ Done adding an operator as operator for survivalGame");
 
@@ -57,6 +58,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     tx = await randomNumberGenerator.setAllowance(survivalGame.address, true, {
       gasLimit: estimateGas.add(100000),
     });
+    await tx.wait();
     console.log(`>> returned tx hash: ${tx.hash}`);
     console.log("✅ Done adding a survivalGame as a consumer of randomNumberGenerator");
 
@@ -67,6 +69,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     tx = await linkToken.approve(survivalGame.address, constants.MaxUint256, {
       gasLimit: estimateGas.add(100000),
     });
+    await tx.wait();
     console.log(`>> returned tx hash: ${tx.hash}`);
     console.log("✅ Done approving operator's LINK to survivalGame");
   });
