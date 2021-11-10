@@ -148,7 +148,7 @@ describe("SurvivalGame", () => {
         await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
         await expect(
           survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps)
-        ).to.revertedWith("SurvivalGame::_isGameStatuses::wrong GameStatus to proceed operation");
+        ).to.revertedWith("SurvivalGame::_isGameStatus::wrong GameStatus to proceed operation");
       });
 
       it("should emit LogCreateGame, LogSetGameStatus, and LogCreateRound with MAX_ROUND times", async () => {

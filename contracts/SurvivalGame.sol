@@ -193,7 +193,7 @@ contract SurvivalGame is
     uint256[6] calldata _prizeDistributions,
     uint256[6] calldata _survivalsBps
   ) external onlyOper {
-    _isGameStatuses(GameStatus.NotStarted, GameStatus.Completed, gameInfo[gameId].status);
+    _isGameStatus(gameInfo[gameId].status, GameStatus.NotStarted, GameStatus.Completed);
     gameId = gameId.add(1);
     // Note: nonce is not reset
 
@@ -238,7 +238,7 @@ contract SurvivalGame is
 
   /// @dev close registration and start round 1
   function start() external onlyOper {
-    _isGameStatus(GameStatus.Opened, gameInfo[gameId].status);
+    _isGameStatus(gameInfo[gameId].status, GameStatus.Opened);
     gameInfo[gameId].status = GameStatus.Processing;
     gameInfo[gameId].maxPrizePool = prizePoolInLatte();
     _requestRandomNumber();
@@ -248,7 +248,7 @@ contract SurvivalGame is
   /// @dev sum up each round and either continue next round or complete the game
   function processing() external onlyOper {
     uint256 _gameId = gameId;
-    _isGameStatus(GameStatus.Started, gameInfo[_gameId].status);
+    _isGameStatus(gameInfo[gameId].status, GameStatus.Started);
     uint8 _roundNumber = gameInfo[_gameId].roundNumber;
     if (
       roundInfo[_gameId][_roundNumber].stopVoteCount > roundInfo[_gameId][_roundNumber].continueVoteCount ||
@@ -267,7 +267,7 @@ contract SurvivalGame is
 
   /// @dev retry processing game when did not receive the randomness from VRF
   function retry() external onlyOper {
-    _isGameStatus(GameStatus.Processing, gameInfo[gameId].status);
+    _isGameStatus(gameInfo[gameId].status, GameStatus.Processing);
     _requestRandomNumber();
   }
 
@@ -288,7 +288,7 @@ contract SurvivalGame is
   /// @param _to - address of the player's master
   function buy(uint256 _size, address _to) external nonReentrant returns (uint256 _remainingPlayerCount) {
     uint256 _gameId = gameId;
-    _isGameStatus(GameStatus.Opened, gameInfo[_gameId].status);
+    _isGameStatus(gameInfo[gameId].status, GameStatus.Opened);
     require(_size != 0, "SurvivalGame::buy::size must be greater than zero");
     require(
       userInfo[_gameId][0][_to].remainingPlayerCount.add(_size) <= MAX_BUY_LIMIT,
@@ -315,7 +315,7 @@ contract SurvivalGame is
   /// @dev check if there are players left
   function check() external nonReentrant returns (uint256 _survivorCount) {
     uint256 _gameId = gameId;
-    _isGameStatus(GameStatus.Started, gameInfo[_gameId].status);
+    _isGameStatus(gameInfo[gameId].status, GameStatus.Started);
     uint8 _roundNumber = gameInfo[_gameId].roundNumber;
     uint8 _lastRoundNumber = _roundNumber.sub(1);
     uint256 _remainingPlayerCount = userInfo[_gameId][_lastRoundNumber][msg.sender].remainingPlayerCount;
@@ -355,7 +355,7 @@ contract SurvivalGame is
 
   function voteContinue() external nonReentrant {
     uint256 _gameId = gameId;
-    _isGameStatus(GameStatus.Started, gameInfo[_gameId].status);
+    _isGameStatus(gameInfo[gameId].status, GameStatus.Started);
     uint8 _roundNumber = gameInfo[_gameId].roundNumber;
     uint256 _voteCount = userInfo[_gameId][_roundNumber][msg.sender].remainingVoteCount;
     require(_voteCount > 0, "SurvivalGame::_vote::no remaining vote");
@@ -374,7 +374,7 @@ contract SurvivalGame is
 
   function voteStop() external nonReentrant {
     uint256 _gameId = gameId;
-    _isGameStatus(GameStatus.Started, gameInfo[_gameId].status);
+    _isGameStatus(gameInfo[gameId].status, GameStatus.Started);
     uint8 _roundNumber = gameInfo[_gameId].roundNumber;
     uint256 _voteCount = userInfo[_gameId][_roundNumber][msg.sender].remainingVoteCount;
     require(_voteCount > 0, "SurvivalGame::_vote::no remaining vote");
@@ -391,7 +391,7 @@ contract SurvivalGame is
 
   function claim(address _to) external nonReentrant {
     uint256 _gameId = gameId;
-    _isGameStatus(GameStatus.Completed, gameInfo[_gameId].status);
+    _isGameStatus(gameInfo[gameId].status, GameStatus.Completed);
     uint8 _roundNumber = gameInfo[_gameId].roundNumber;
     UserInfo memory _userInfo = userInfo[_gameId][_roundNumber][msg.sender];
     require(!_userInfo.claimed, "SurvivalGame::claim::rewards has been claimed");
@@ -406,18 +406,18 @@ contract SurvivalGame is
     emit LogClaimReward(_gameId, _to, _remainingPlayer, _pendingReward);
   }
 
-  function _isGameStatus(GameStatus _expect, GameStatus _actual) internal pure {
+  function _isGameStatus(GameStatus _actual, GameStatus _expect) internal pure {
     require(_expect == _actual, "SurvivalGame::_isGameStatus::wrong GameStatus to proceed operation");
   }
 
-  function _isGameStatuses(
+  function _isGameStatus(
+    GameStatus _actual,
     GameStatus _expect0,
-    GameStatus _expect1,
-    GameStatus _actual
+    GameStatus _expect1
   ) internal pure {
     require(
       _expect0 == _actual || _expect1 == _actual,
-      "SurvivalGame::_isGameStatuses::wrong GameStatus to proceed operation"
+      "SurvivalGame::_isGameStatus::wrong GameStatus to proceed operation"
     );
   }
 
