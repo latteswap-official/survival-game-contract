@@ -290,6 +290,50 @@ describe("SurvivalGame", () => {
     });
   });
 
+  describe("#retry()", () => {
+    context("when never got comsume random number", () => {
+      let gameId: BigNumber;
+      beforeEach(async () => {
+        // create game
+        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        gameId = await survivalGame.gameId();
+        // open game
+        await survivalGameAsOperator.start();
+      });
+
+      it("should able to retry and change the requestId", async () => {
+        const gameInfo = await survivalGame.gameInfo(gameId);
+        const nextRoundNumber = gameInfo.roundNumber + 1;
+        const roundInfo = await survivalGame.roundInfo(gameId, nextRoundNumber);
+
+        expect((await survivalGame.gameInfo(gameId)).status, "status should be processing").to.eq(
+          GameStatus.Processing
+        );
+
+        await survivalGameAsOperator.retry();
+        const recent = await survivalGame.roundInfo(gameId, nextRoundNumber);
+        expect(recent.requestId, "requestId should be changed").to.not.eq(roundInfo.requestId);
+      });
+
+      it("should retry and able to consumed random number", async () => {
+        const gameInfo = await survivalGame.gameInfo(gameId);
+        const nextRoundNumber = gameInfo.roundNumber + 1;
+        let roundInfo = await survivalGame.roundInfo(gameId, nextRoundNumber);
+
+        await survivalGameAsOperator.retry();
+        roundInfo = await survivalGame.roundInfo(gameId, nextRoundNumber);
+
+        // consumed random number
+        await randomGeneratorAsDeployer.fulfillRandomness(roundInfo.requestId, randomness);
+
+        expect((await survivalGame.gameInfo(gameId)).status, "status should be started").to.eq(GameStatus.Started);
+        expect((await survivalGame.roundInfo(gameId, nextRoundNumber)).entropy, "entropy should have value").to.not.eq(
+          constants.Zero
+        );
+      });
+    });
+  });
+
   describe("#processing()", () => {
     context("check access condition when not receive random from randomNumberGenerator", () => {
       beforeEach(async () => {
