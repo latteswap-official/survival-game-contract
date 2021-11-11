@@ -20,7 +20,7 @@
     "deploy:mainnet:randomNumberGenerator": "hardhat --network mainnet deploy --no-compile --reset --tags DeployRandomNumberGenerator",
     "deploy:mainnet:survivalGame": "hardhat --network mainnet deploy --no-compile --reset --tags DeploySurvivalGame"
   },
-  "version": "1.0.0-rc.3",
+  "version": "1.0.0-rc.5",
   "main": "index.js",
   "license": "GPL-3.0",
   "devDependencies": {

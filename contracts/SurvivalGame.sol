@@ -41,7 +41,6 @@ contract SurvivalGame is
   uint256 public operatorCooldown;
 
   uint256 public gameId;
-  uint256 internal nonce;
   uint256 public lastUpdatedTimestamp;
 
   // Constants
@@ -195,7 +194,6 @@ contract SurvivalGame is
   ) external onlyOper {
     _isGameStatus(gameInfo[gameId].status, GameStatus.NotStarted, GameStatus.Completed);
     gameId = gameId.add(1);
-    // Note: nonce is not reset
 
     gameInfo[gameId] = GameInfo({
       status: GameStatus.Opened,
@@ -328,14 +326,13 @@ contract SurvivalGame is
     {
       _survivorCount = 0;
       for (uint256 i = 0; i < _remainingPlayerCount; ++i) {
-        bytes memory _data = abi.encodePacked(_entropy, address(this), msg.sender, nonce + i + 1);
+        bytes memory _data = abi.encodePacked(_entropy, address(this), msg.sender, i);
         // eliminated if hash value mod 10000 more than the survive bps
         bool _survived = _survivalBps > (uint256(keccak256(_data)) % 1e4);
         if (_survived) {
           ++_survivorCount;
         }
       }
-      nonce += _remainingPlayerCount;
       userInfo[_gameId][_roundNumber][msg.sender].remainingPlayerCount = _survivorCount;
       userInfo[_gameId][_roundNumber][msg.sender].remainingVoteCount = _survivorCount;
       roundInfo[_gameId][_roundNumber].survivorCount = roundInfo[_gameId][_roundNumber].survivorCount.add(
