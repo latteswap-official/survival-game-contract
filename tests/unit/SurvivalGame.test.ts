@@ -148,7 +148,7 @@ describe("SurvivalGame", () => {
         await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
         await expect(
           survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps)
-        ).to.revertedWith("SurvivalGame::onlyBeforeOpen::only before game opened");
+        ).to.revertedWith("SurvivalGame::_isGameStatus::wrong GameStatus to proceed operation");
       });
 
       it("should emit LogCreateGame, LogSetGameStatus, and LogCreateRound with MAX_ROUND times", async () => {
@@ -290,6 +290,50 @@ describe("SurvivalGame", () => {
     });
   });
 
+  describe("#retry()", () => {
+    context("when never got comsume random number", () => {
+      let gameId: BigNumber;
+      beforeEach(async () => {
+        // create game
+        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        gameId = await survivalGame.gameId();
+        // open game
+        await survivalGameAsOperator.start();
+      });
+
+      it("should able to retry and change the requestId", async () => {
+        const gameInfo = await survivalGame.gameInfo(gameId);
+        const nextRoundNumber = gameInfo.roundNumber + 1;
+        const roundInfo = await survivalGame.roundInfo(gameId, nextRoundNumber);
+
+        expect((await survivalGame.gameInfo(gameId)).status, "status should be processing").to.eq(
+          GameStatus.Processing
+        );
+
+        await survivalGameAsOperator.retry();
+        const recent = await survivalGame.roundInfo(gameId, nextRoundNumber);
+        expect(recent.requestId, "requestId should be changed").to.not.eq(roundInfo.requestId);
+      });
+
+      it("should retry and able to consumed random number", async () => {
+        const gameInfo = await survivalGame.gameInfo(gameId);
+        const nextRoundNumber = gameInfo.roundNumber + 1;
+        let roundInfo = await survivalGame.roundInfo(gameId, nextRoundNumber);
+
+        await survivalGameAsOperator.retry();
+        roundInfo = await survivalGame.roundInfo(gameId, nextRoundNumber);
+
+        // consumed random number
+        await randomGeneratorAsDeployer.fulfillRandomness(roundInfo.requestId, randomness);
+
+        expect((await survivalGame.gameInfo(gameId)).status, "status should be started").to.eq(GameStatus.Started);
+        expect((await survivalGame.roundInfo(gameId, nextRoundNumber)).entropy, "entropy should have value").to.not.eq(
+          constants.Zero
+        );
+      });
+    });
+  });
+
   describe("#processing()", () => {
     context("check access condition when not receive random from randomNumberGenerator", () => {
       beforeEach(async () => {
@@ -305,7 +349,7 @@ describe("SurvivalGame", () => {
 
       it("should revert if game status is not Started", async () => {
         await expect(survivalGameAsOperator.processing()).to.revertedWith(
-          "SurvivalGame::onlyStarted::only after game started"
+          "SurvivalGame::_isGameStatus::wrong GameStatus to proceed operation"
         );
       });
     });
@@ -445,7 +489,7 @@ describe("SurvivalGame", () => {
 
         it("should emit LogSetFinalPrizePerPlayer, and LogSetGameStatus", async () => {
           const roundInfo = await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber);
-          const finalPrizePerPlayer = (await survivalGame.prizePoolInLatte())
+          const finalPrizePerPlayer = (await survivalGame.gameInfo(gameId)).maxPrizePool
             .mul(roundInfo.prizeDistribution)
             .div(10000)
             .div(20); // alice + bob max batch each
@@ -459,7 +503,7 @@ describe("SurvivalGame", () => {
 
         it("should set game status to Completed and set finalPrizePerplayer in gameInfo", async () => {
           const roundInfo = await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber);
-          const finalPrizePerPlayer = (await survivalGame.prizePoolInLatte())
+          const finalPrizePerPlayer = (await survivalGame.gameInfo(gameId)).maxPrizePool
             .mul(roundInfo.prizeDistribution)
             .div(10000)
             .div(20); // alice + bob max batch each
@@ -587,7 +631,7 @@ describe("SurvivalGame", () => {
         await survivalGameAsOperator.start();
 
         await expect(survivalGameAsAlice.buy(1, await alice.getAddress())).to.revertedWith(
-          "SurvivalGame::onlyOpened::only before game starting"
+          "SurvivalGame::_isGameStatus::wrong GameStatus to proceed operation"
         );
       });
     });
