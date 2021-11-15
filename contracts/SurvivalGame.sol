@@ -127,7 +127,7 @@ contract SurvivalGame is
     uint256 voteStopCount
   );
   event LogSetRoundSurvivorCount(uint256 indexed gameId, uint8 indexed roundNumber, uint256 survivorCount);
-  event LogClaimReward(uint256 indexed gameId, address to, uint256 players, uint256 amount);
+  event LogClaimReward(uint256 indexed gameId, uint8 indexed roundNumber, address to, uint256 players, uint256 amount);
 
   /**
    * @notice Constructor
@@ -400,7 +400,7 @@ contract SurvivalGame is
 
     latte.safeTransfer(_to, _pendingReward);
 
-    emit LogClaimReward(_gameId, _to, _remainingPlayer, _pendingReward);
+    emit LogClaimReward(_gameId, _roundNumber, _to, _remainingPlayer, _pendingReward);
   }
 
   function _isGameStatus(GameStatus _actual, GameStatus _expect) internal pure {
@@ -427,7 +427,7 @@ contract SurvivalGame is
     _feeToken.safeTransferFrom(msg.sender, address(entropyGenerator), _feeAmount);
     roundInfo[gameId][_nextRoundNumber].requestId = entropyGenerator.randomNumber();
 
-    emit LogRequestRandomNumber(gameId, _nextRoundNumber, roundInfo[gameId][_nextRoundNumber].requestId);
+    emit LogRequestRandomNumber(gameId, roundInfo[gameId][_nextRoundNumber].requestId);
   }
 
   function _proceed(uint256 _entropy) internal {
