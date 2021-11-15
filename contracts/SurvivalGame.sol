@@ -427,7 +427,7 @@ contract SurvivalGame is
     _feeToken.safeTransferFrom(msg.sender, address(entropyGenerator), _feeAmount);
     roundInfo[gameId][_nextRoundNumber].requestId = entropyGenerator.randomNumber();
 
-    emit LogRequestRandomNumber(gameId, roundInfo[gameId][_nextRoundNumber].requestId);
+    emit LogRequestRandomNumber(gameId, _nextRoundNumber, roundInfo[gameId][_nextRoundNumber].requestId);
   }
 
   function _proceed(uint256 _entropy) internal {
