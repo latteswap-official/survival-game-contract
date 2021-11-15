@@ -935,7 +935,7 @@ describe("SurvivalGame", () => {
 
         await expect(survivalGameAsAlice.claim(await alice.getAddress()))
           .to.emit(survivalGame, "LogClaimReward")
-          .withArgs(gameId, gameInfo.roundNumber, await alice.getAddress(), buySize, totalReward);
+          .withArgs(gameId, await alice.getAddress(), buySize, totalReward);
       });
 
       it("should successfully claim reward and transfer correctly", async () => {
