@@ -101,6 +101,8 @@ contract SurvivalGame is
   // gameId => roundNumber => userAddress => userInfo
   mapping(uint256 => mapping(uint8 => mapping(address => UserInfo))) public userInfo;
 
+  event LogSetOperatorCooldown(uint256 operatorCooldown);
+
   event LogCreateGame(uint256 indexed gameId, uint256 costPerTicket, uint256 burnBps);
   event LogSetGameStatus(uint256 indexed gameId, string status);
   event LogSetTotalPlayer(uint256 indexed gameId, uint256 totalPlayer);
@@ -185,6 +187,14 @@ contract SurvivalGame is
 
   function prizePoolInLatte() public view returns (uint256 _balance) {
     _balance = IERC20Upgradeable(latte).balanceOf(address(this));
+  }
+
+  /// @dev A function setting the operator cooldown
+  function setOperatorCooldown(uint256 _operatorCooldown) external onlyOwner {
+    require(_operatorCooldown > 0, "SurvivalGame::setOperatorCooldown::operatorCooldown must be greater than zero");
+    operatorCooldown = _operatorCooldown;
+
+    emit LogSetOperatorCooldown(_operatorCooldown);
   }
 
   /// Operator's functions
