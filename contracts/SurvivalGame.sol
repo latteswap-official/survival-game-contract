@@ -14,7 +14,7 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "@latteswap/latteswap-contract/contracts/nft/LatteNFT.sol";
+import "@latteswap/latteswap-contract/contracts/nft/interfaces/ILatteNFT.sol";
 
 import "./math/SafeMath8.sol";
 import "./math/SafeMath16.sol";
@@ -63,7 +63,7 @@ contract SurvivalGame is
   struct GameInfo {
     GameStatus status;
     uint8 roundNumber;
-    LatteNFT latteNFT;
+    ILatteNFT latteNFT;
     uint256 categoryId;
     uint256 maxPrizePool;
     uint256 finalPrizePerPlayer;
@@ -200,7 +200,7 @@ contract SurvivalGame is
     _isGameStatus(gameInfo[gameId].status, GameStatus.NotStarted, GameStatus.Completed);
     gameId = gameId.add(1);
 
-    LatteNFT _nft = LatteNFT(_nftAddress);
+    ILatteNFT _nft = ILatteNFT(_nftAddress);
     require(_nft.currentCategoryId() >= _categoryId, "SurvivalGame::create::LatteNFT categoryId not existed");
 
     gameInfo[gameId] = GameInfo({
