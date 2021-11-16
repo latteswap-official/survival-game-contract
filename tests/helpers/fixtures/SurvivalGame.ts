@@ -1,7 +1,9 @@
-import { FakeContract, smock } from "@defi-wonderland/smock";
-import { constants, Signer } from "ethers";
+import { FakeContract, MockContract, smock } from "@defi-wonderland/smock";
+import { BigNumber, constants, Signer } from "ethers";
 import { ethers, upgrades } from "hardhat";
 import {
+  LatteNFT,
+  LatteNFT__factory,
   SimpleRandomNumberGenerator,
   SimpleRandomNumberGenerator__factory,
   SimpleToken,
@@ -13,6 +15,8 @@ import {
 export interface ISurvivalGameUnitTestFixtureDTO {
   latte: SimpleToken;
   fee: SimpleToken;
+  nft: MockContract<LatteNFT>;
+  categoryId: BigNumber;
   simpleRandomNumberGenerator: SimpleRandomNumberGenerator;
   fakeRandomNumberGenerator: FakeContract<SimpleRandomNumberGenerator>;
   survivalGame: SurvivalGame;
@@ -24,6 +28,15 @@ export interface ISurvivalGameUnitTestFixtureDTO {
 export async function survivalGameUnitTestFigture(): Promise<ISurvivalGameUnitTestFixtureDTO> {
   const RAND_FEE_AMOUNT = ethers.utils.parseEther("1");
   const [deployer, alice, bob, operator] = await ethers.getSigners();
+
+  // Deploy mocked LatteNFT
+  const LatteNFT = await smock.mock<LatteNFT__factory>("LatteNFT");
+  const latteNFT = await LatteNFT.deploy();
+  await latteNFT.deployed();
+  await latteNFT.initialize("baseURI");
+  await latteNFT.addCategoryInfo("SurvivalGame", "SurvivalGameBaseURI");
+
+  const categoryId = await latteNFT.currentCategoryId();
 
   // Deploy mocked latte
   const LATTE = (await ethers.getContractFactory("SimpleToken", deployer)) as SimpleToken__factory;
@@ -82,6 +95,11 @@ export async function survivalGameUnitTestFigture(): Promise<ISurvivalGameUnitTe
   ])) as SurvivalGame;
   await survivalGameWithFake.deployed();
 
+  // set survivalGame to MINTER_ROLE of LatteNFT
+  await latteNFT.grantRole(await latteNFT.MINTER_ROLE(), survivalGame.address);
+  await latteNFT.grantRole(await latteNFT.MINTER_ROLE(), survivalGameWithCooldown.address);
+  await latteNFT.grantRole(await latteNFT.MINTER_ROLE(), survivalGameWithFake.address);
+
   // allow survivalGame to be consumer of SimpleRandomNumberGenerator
   await simpleRandomNumberGenerator.setAllowance(survivalGame.address, true);
 
@@ -101,6 +119,8 @@ export async function survivalGameUnitTestFigture(): Promise<ISurvivalGameUnitTe
   return {
     latte,
     fee,
+    nft: latteNFT,
+    categoryId,
     simpleRandomNumberGenerator,
     fakeRandomNumberGenerator,
     survivalGame,

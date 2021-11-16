@@ -1,9 +1,10 @@
-import { FakeContract } from "@defi-wonderland/smock";
+import { FakeContract, MockContract } from "@defi-wonderland/smock";
 import chai from "chai";
 import { solidity } from "ethereum-waffle";
 import { BigNumber, constants, Signer } from "ethers";
 import { ethers, waffle } from "hardhat";
 import {
+  LatteNFT,
   SimpleRandomNumberGenerator,
   SimpleRandomNumberGenerator__factory,
   SimpleToken,
@@ -74,6 +75,8 @@ describe("SurvivalGame", () => {
   // Contracts
   let latte: SimpleToken;
   let fee: SimpleToken;
+  let nft: MockContract<LatteNFT>;
+  let categoryId: BigNumber;
   let simpleRandomNumberGenerator: SimpleRandomNumberGenerator;
   let fakeRandomNumberGenerator: FakeContract<SimpleRandomNumberGenerator>;
   let survivalGame: SurvivalGame;
@@ -95,6 +98,8 @@ describe("SurvivalGame", () => {
     ({
       latte,
       fee,
+      nft,
+      categoryId,
       simpleRandomNumberGenerator,
       fakeRandomNumberGenerator,
       survivalGame,
@@ -128,31 +133,67 @@ describe("SurvivalGame", () => {
     context("when create game", () => {
       it("should revert if caller is not OPERATOR role", async () => {
         await expect(
-          survivalGameAsAlice.create(lattePerTicket, burnBps, prizeDistributions, survivalBps)
+          survivalGameAsAlice.create(lattePerTicket, burnBps, nft.address, categoryId, prizeDistributions, survivalBps)
         ).to.revertedWith("SurvivalGame::onlyOper::only OPERATOR role");
       });
 
+      it("should revert if categoryId is not existed", async () => {
+        await expect(
+          survivalGameAsOperator.create(
+            lattePerTicket,
+            burnBps,
+            nft.address,
+            constants.MaxUint256,
+            zeroBps,
+            survivalBps
+          )
+        ).to.revertedWith("SurvivalGame::create::LatteNFT categoryId not existed");
+      });
+
       it("should revert if some prizeDistributions is invalid", async () => {
-        await expect(survivalGameAsOperator.create(lattePerTicket, burnBps, zeroBps, survivalBps)).to.revertedWith(
-          "SurvivalGame::create::invalid prizeDistributions BPS"
-        );
+        await expect(
+          survivalGameAsOperator.create(lattePerTicket, burnBps, nft.address, categoryId, zeroBps, survivalBps)
+        ).to.revertedWith("SurvivalGame::create::invalid prizeDistributions BPS");
       });
 
       it("should revert if some survivalBps is invalid", async () => {
         await expect(
-          survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, zeroBps)
+          survivalGameAsOperator.create(lattePerTicket, burnBps, nft.address, categoryId, prizeDistributions, zeroBps)
         ).to.revertedWith("SurvivalGame::create::invalid survival BPS");
       });
 
       it("should revert if current game status is not NotStarted or Completed", async () => {
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalBps
+        );
         await expect(
-          survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps)
+          survivalGameAsOperator.create(
+            lattePerTicket,
+            burnBps,
+            nft.address,
+            categoryId,
+            prizeDistributions,
+            survivalBps
+          )
         ).to.revertedWith("SurvivalGame::_isGameStatus::wrong GameStatus to proceed operation");
       });
 
       it("should emit LogCreateGame, LogSetGameStatus, and LogCreateRound with MAX_ROUND times", async () => {
-        await expect(survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps))
+        await expect(
+          survivalGameAsOperator.create(
+            lattePerTicket,
+            burnBps,
+            nft.address,
+            categoryId,
+            prizeDistributions,
+            survivalBps
+          )
+        )
           .to.emit(survivalGame, "LogCreateGame")
           .withArgs("1", lattePerTicket, burnBps)
           .to.emit(survivalGame, "LogSetGameStatus")
@@ -173,7 +214,14 @@ describe("SurvivalGame", () => {
 
       it("should create with correct gameInfo and all roundInfo", async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalBps
+        );
         // game info
         const gameId = await survivalGame.gameId();
         const gameInfo = await survivalGame.gameInfo(gameId);
@@ -199,7 +247,14 @@ describe("SurvivalGame", () => {
     context("operator has cooldown", () => {
       it("should reverted if call consecutively", async () => {
         //create game
-        await survivalGameWithCooldown.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
+        await survivalGameWithCooldown.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalBps
+        );
 
         await expect(survivalGameWithCooldown.start()).to.revertedWith(
           "SurvivalGame::onlyOper::OPERATOR should not proceed the game consecutively"
@@ -210,7 +265,14 @@ describe("SurvivalGame", () => {
     context("zero operator cooldown", () => {
       beforeEach(async () => {
         // create game
-        await survivalGameWithFakeAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
+        await survivalGameWithFakeAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalBps
+        );
       });
       context("when start game", () => {
         it("should revert if caller is not OPERATOR role", async () => {
@@ -257,7 +319,14 @@ describe("SurvivalGame", () => {
     context("after operator started game", () => {
       beforeEach(async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalBps
+        );
         // open game
         await survivalGameAsOperator.start();
       });
@@ -295,7 +364,14 @@ describe("SurvivalGame", () => {
       let gameId: BigNumber;
       beforeEach(async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalGuaranteeBps
+        );
         gameId = await survivalGame.gameId();
         // open game
         await survivalGameAsOperator.start();
@@ -338,7 +414,14 @@ describe("SurvivalGame", () => {
     context("check access condition when not receive random from randomNumberGenerator", () => {
       beforeEach(async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalBps
+        );
         // open game
         await survivalGameAsOperator.start();
       });
@@ -359,7 +442,14 @@ describe("SurvivalGame", () => {
         let gameId: BigNumber;
         beforeEach(async () => {
           // create game
-          await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalBps);
+          await survivalGameAsOperator.create(
+            lattePerTicket,
+            burnBps,
+            nft.address,
+            categoryId,
+            prizeDistributions,
+            survivalBps
+          );
           gameId = await survivalGame.gameId();
           // start game
           await survivalGameAsOperator.start();
@@ -395,7 +485,14 @@ describe("SurvivalGame", () => {
 
         beforeEach(async () => {
           // create game
-          await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+          await survivalGameAsOperator.create(
+            lattePerTicket,
+            burnBps,
+            nft.address,
+            categoryId,
+            prizeDistributions,
+            survivalGuaranteeBps
+          );
           gameId = await survivalGame.gameId();
 
           const maxBatch = 10;
@@ -444,7 +541,14 @@ describe("SurvivalGame", () => {
 
         beforeEach(async () => {
           // create game
-          await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+          await survivalGameAsOperator.create(
+            lattePerTicket,
+            burnBps,
+            nft.address,
+            categoryId,
+            prizeDistributions,
+            survivalGuaranteeBps
+          );
           gameId = await survivalGame.gameId();
           const maxRound = await survivalGame.MAX_ROUND();
 
@@ -527,7 +631,14 @@ describe("SurvivalGame", () => {
       let gameId: BigNumber;
       beforeEach(async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalGuaranteeBps
+        );
         gameId = await survivalGame.gameId();
       });
 
@@ -580,7 +691,14 @@ describe("SurvivalGame", () => {
       let buySize: number;
       beforeEach(async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalGuaranteeBps
+        );
         gameId = await survivalGame.gameId();
         buySize = 10;
       });
@@ -626,7 +744,14 @@ describe("SurvivalGame", () => {
     context("when buy after start game", () => {
       it("should reverted", async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalGuaranteeBps
+        );
         // start game
         await survivalGameAsOperator.start();
 
@@ -639,7 +764,14 @@ describe("SurvivalGame", () => {
     context("when buy more than buy limit", () => {
       it("should reverted", async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalGuaranteeBps
+        );
 
         await expect(
           survivalGameAsAlice.buy((await survivalGame.MAX_BUY_LIMIT()).add(1), await alice.getAddress())
@@ -654,7 +786,14 @@ describe("SurvivalGame", () => {
       let buySize: number;
       beforeEach(async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalGuaranteeBps
+        );
         gameId = await survivalGame.gameId();
 
         buySize = 10;
@@ -722,7 +861,14 @@ describe("SurvivalGame", () => {
       let buySize: number;
       beforeEach(async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalGuaranteeBps
+        );
         gameId = await survivalGame.gameId();
 
         buySize = 10;
@@ -752,7 +898,14 @@ describe("SurvivalGame", () => {
       let buySize: number;
       beforeEach(async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalGuaranteeBps
+        );
         gameId = await survivalGame.gameId();
 
         buySize = 10;
@@ -805,7 +958,14 @@ describe("SurvivalGame", () => {
       let buySize: number;
       beforeEach(async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalGuaranteeBps
+        );
         gameId = await survivalGame.gameId();
 
         buySize = 10;
@@ -835,7 +995,14 @@ describe("SurvivalGame", () => {
       let buySize: number;
       beforeEach(async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalGuaranteeBps
+        );
         gameId = await survivalGame.gameId();
         buySize = 10;
 
@@ -892,7 +1059,14 @@ describe("SurvivalGame", () => {
       let buySize: number;
       beforeEach(async () => {
         // create game
-        await survivalGameAsOperator.create(lattePerTicket, burnBps, prizeDistributions, survivalGuaranteeBps);
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalGuaranteeBps
+        );
         gameId = await survivalGame.gameId();
         buySize = await survivalGame.MAX_ROUND();
 
@@ -951,6 +1125,77 @@ describe("SurvivalGame", () => {
           true
         );
         expect(await latte.balanceOf(await alice.getAddress())).to.eq(aliceBalance.add(totalReward));
+      });
+    });
+
+    context("when last round round and guarantee survival", () => {
+      let gameId: BigNumber;
+
+      beforeEach(async () => {
+        // create game
+        await survivalGameAsOperator.create(
+          lattePerTicket,
+          burnBps,
+          nft.address,
+          categoryId,
+          prizeDistributions,
+          survivalGuaranteeBps
+        );
+        gameId = await survivalGame.gameId();
+        const maxRound = await survivalGame.MAX_ROUND();
+
+        const maxBatch = 10;
+        // alice registration
+        await latteAsAlice.approve(survivalGame.address, lattePerTicket.mul(maxBatch));
+        await survivalGameAsAlice.buy(maxBatch, await alice.getAddress());
+
+        // start game
+        await survivalGameAsOperator.start();
+
+        // round 1 started
+        await randomGeneratorAsDeployer.fulfillRandomness(
+          (
+            await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber + 1)
+          ).requestId,
+          randomness
+        );
+
+        // round 1 checked
+        await survivalGameAsAlice.check();
+
+        for (let round = 2; round <= maxRound; round++) {
+          // processing
+          await survivalGameAsOperator.processing();
+          // started
+          await randomGeneratorAsDeployer.fulfillRandomness(
+            (
+              await survivalGame.roundInfo(gameId, (await survivalGame.gameInfo(gameId)).roundNumber + 1)
+            ).requestId,
+            randomness
+          );
+          // checked
+          await survivalGameAsAlice.check();
+        }
+
+        // processing to complete
+        await survivalGameAsOperator.processing();
+      });
+
+      it("should successfully claim reward, transfer latte and nft correctly", async () => {
+        const gameInfo = await survivalGame.gameInfo(gameId);
+        const aliceBalance = await latte.balanceOf(await alice.getAddress());
+        const aliceNFT = await nft.balanceOf(await alice.getAddress());
+        const aliceInfo = await survivalGame.userInfo(gameId, gameInfo.roundNumber, await alice.getAddress());
+        const finalPrizePerPlayer = gameInfo.finalPrizePerPlayer;
+        const totalReward = finalPrizePerPlayer.mul(aliceInfo.remainingPlayerCount);
+
+        await survivalGameAsAlice.claim(await alice.getAddress());
+
+        expect((await survivalGame.userInfo(gameId, gameInfo.roundNumber, await alice.getAddress())).claimed).to.eq(
+          true
+        );
+        expect(await latte.balanceOf(await alice.getAddress())).to.eq(aliceBalance.add(totalReward));
+        expect((await nft.balanceOf(await alice.getAddress())).sub(aliceNFT)).to.eq(BigNumber.from(1));
       });
     });
   });
