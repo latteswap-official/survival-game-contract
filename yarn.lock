@@ -571,10 +571,10 @@
   resolved "https://registry.yarnpkg.com/@humanwhocodes/object-schema/-/object-schema-1.2.0.tgz#87de7af9c231826fdd68ac7258f77c429e0e5fcf"
   integrity sha512-wdppn25U8z/2yiaT6YGquE6X8sSv7hNMWSXYSSU1jGv/yd6XqjXgTDJ8KP4NgjTXfJ3GbRjeeb8RTV7a/VpM+w==
 
-"@latteswap/latteswap-contract-config@^1.5.0-rc.4":
-  version "1.5.0-rc.4"
-  resolved "https://registry.yarnpkg.com/@latteswap/latteswap-contract-config/-/latteswap-contract-config-1.5.0-rc.4.tgz#d537d4cd4e2888a786b05698974e87b2b7b92243"
-  integrity sha512-2RLQG7BFGAjheedTxi3XE5CaQlytokfZtLrIy91M34SkaVcm6UHVBxKoAQbgvKqZ6UoImtyTefJIOosCeXah2A==
+"@latteswap/latteswap-contract-config@^1.5.0-rc.6":
+  version "1.5.0-rc.6"
+  resolved "https://registry.yarnpkg.com/@latteswap/latteswap-contract-config/-/latteswap-contract-config-1.5.0-rc.6.tgz#2224e31e240003bb7e56d4e5fc8551c88721e26a"
+  integrity sha512-VJ3UoqTqJqGftA4La2/yq/fxy7X5NalDR9snDP9pvGn6FRKeaGSzc9G3NNCl5zv5at2tPBVfXkusAzOFmtL/LA==
 
 "@latteswap/latteswap-contract@^2.2.0":
   version "2.2.0"

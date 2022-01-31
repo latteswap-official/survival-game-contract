@@ -24,7 +24,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const [deployer, operator] = await ethers.getSigners();
 
   const OPERATOR_ADDRESS = await operator.getAddress();
-  const OPER_COOLDOWN_TS = 5 * 60; // 5 mins
+  const OPER_COOLDOWN_TS = 20 * 60; // 20 mins
   const FEE_TOKEN = "0x404460C6A5EdE2D891e8297795264fDe62ADBB75";
 
   await withNetworkFile(async () => {
